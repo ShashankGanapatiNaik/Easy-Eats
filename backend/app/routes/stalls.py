@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime
-
+from app.models.review import Review
+from app.models.user import User
 from app.models.stall import Stall, StallCategory
 from app.models.menu_item import MenuItem
 from app.utils.security import get_current_user, require_role
@@ -133,59 +134,244 @@ async def my_stalls_list(current_user=Depends(require_role("stall_owner", "admin
 
 @router.get("/{stall_id}")
 async def get_stall(stall_id: str):
-    """
-    Return stall details + full menu grouped by category.
-    Each category section only shows AVAILABLE items.
-    """
-    stall = await Stall.get(ObjectId(stall_id))
-    if not stall:
-        raise HTTPException(status_code=404, detail="Stall not found")
 
-    # Fetch all available (non-deleted) items for this stall
+    """
+    Return stall details + menu + reviews from MongoDB
+    """
+
+    # =====================================================
+    # FIND STALL
+    # =====================================================
+
+    stall = await Stall.get(
+        ObjectId(stall_id)
+    )
+
+    if not stall:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Stall not found"
+        )
+
+    # =====================================================
+    # FETCH MENU ITEMS
+    # =====================================================
+
     raw_items = await MenuItem.find(
+
         MenuItem.stall_id == stall.id,
+
         MenuItem.is_deleted == False,
+
     ).to_list()
 
-    # Group items by category (preserving stall's category order)
-    cat_order = stall.menu_categories  # e.g. ["Popular","Burgers","Drinks"]
-    grouped: dict = {cat: [] for cat in cat_order}
+    # =====================================================
+    # GROUP MENU ITEMS
+    # =====================================================
+
+    cat_order = stall.menu_categories
+
+    grouped = {
+        cat: []
+        for cat in cat_order
+    }
+
     grouped.setdefault("Other", [])
 
     for item in raw_items:
-        cat = item.category if item.category in grouped else "Other"
-        
-        # Always add to its primary category
-        grouped[cat].append(_item_dict(item))
-        
-        # If the item is flagged as popular, also show it in the Popular tab
-        if "Popular" in grouped and item.is_popular and cat != "Popular":
-            grouped["Popular"].append(_item_dict(item))
 
-    # Remove empty categories from response
+        cat = (
+            item.category
+            if item.category in grouped
+            else "Other"
+        )
+
+        grouped[cat].append(
+            _item_dict(item)
+        )
+
+        # ADD POPULAR ITEMS
+
+        if (
+            "Popular" in grouped
+            and item.is_popular
+            and cat != "Popular"
+        ):
+
+            grouped["Popular"].append(
+                _item_dict(item)
+            )
+
+    # REMOVE EMPTY CATEGORY
+
     menu_sections = [
-        {"category": cat, "items": grouped[cat]}
+
+        {
+            "category": cat,
+            "items": grouped[cat]
+        }
+
         for cat in cat_order
+
         if grouped.get(cat)
+
     ]
 
+    # =====================================================
+    # FETCH REVIEWS FROM MONGODB
+    # =====================================================
+
+    reviews = await Review.find(
+
+        Review.stall_id == stall.id
+
+    ).sort(
+
+        -Review.created_at
+
+    ).to_list()
+
+    # =====================================================
+    # CALCULATE AVG RATING
+    # =====================================================
+
+    total_reviews = len(reviews)
+
+    avg_rating = 0
+
+    if total_reviews > 0:
+
+        avg_rating = round(
+
+            sum(
+                review.rating
+                for review in reviews
+            ) / total_reviews,
+
+            1
+
+        )
+
+    # =====================================================
+    # FORMAT REVIEWS
+    # =====================================================
+
+    review_data = []
+
+    for review in reviews:
+
+        user = await User.get(
+            review.user_id
+        )
+
+        review_data.append({
+
+            "id":
+                str(review.id),
+
+            "user_id":
+                str(review.user_id),
+
+            "user_name":
+
+                user.name
+                if user else "User",
+
+            "rating":
+                review.rating,
+
+            "comment":
+                review.comment,
+
+            "created_at":
+
+                review.created_at.isoformat()
+
+        })
+
+    # =====================================================
+    # UPDATE STALL RATING
+    # =====================================================
+
+    await stall.update({
+
+        "$set": {
+
+            "avg_rating":
+                avg_rating,
+
+            "total_ratings":
+                total_reviews,
+
+            "updated_at":
+                datetime.utcnow()
+
+        }
+
+    })
+
+    # =====================================================
+    # RETURN RESPONSE
+    # =====================================================
+
     return {
-        "id": str(stall.id),
-        "name": stall.name,
-        "description": stall.description,
-        "slug": stall.slug,
-        "cuisine_type": stall.cuisine_type,
-        "is_open": stall.is_open,
-        "avg_rating": stall.avg_rating,
-        "total_ratings": stall.total_ratings,
-        "total_orders": stall.total_orders,
-        "hero_image_url": stall.hero_image_url,
-        "logo_url": stall.logo_url,
-        "location_label": stall.location_label,
-        "estimated_pickup_min": stall.estimated_pickup_min,
-        "operating_hours": stall.operating_hours,
-        "menu_categories": stall.menu_categories,
-        "menu": menu_sections,
+
+        "id":
+            str(stall.id),
+
+        "name":
+            stall.name,
+
+        "description":
+            stall.description,
+
+        "slug":
+            stall.slug,
+
+        "cuisine_type":
+            stall.cuisine_type,
+
+        "is_open":
+            stall.is_open,
+
+        "avg_rating":
+            avg_rating,
+
+        "total_ratings":
+            total_reviews,
+
+        "total_orders":
+            stall.total_orders,
+
+        "hero_image_url":
+            stall.hero_image_url,
+
+        "logo_url":
+            stall.logo_url,
+
+        "location_label":
+            stall.location_label,
+
+        "estimated_pickup_min":
+            stall.estimated_pickup_min,
+
+        "operating_hours":
+            stall.operating_hours,
+
+        "menu_categories":
+            stall.menu_categories,
+
+        "menu":
+            menu_sections,
+
+        # =================================================
+        # REVIEWS FROM MONGODB
+        # =================================================
+
+        "reviews":
+            review_data
+
     }
 
 

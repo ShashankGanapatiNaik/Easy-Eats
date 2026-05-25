@@ -1,16 +1,16 @@
-import { useState,useEffect} from "react";
-import { useNavigate} from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { login, register, sendOtp } from "../api";
 import logo from "../assets/logo.svg";
 import OTPModal from "../components/OTPModal";
 
 const ALIAS = { owner: "stall_owner", kitchen: "stall_owner" };
 const ROLE_REDIRECT = {
-  student:     "/home",
+  student: "/home",
   stall_owner: "/admin",
-  owner:       "/admin",
-  kitchen:     "/admin",
-  admin:       "/admin",
+  owner: "/admin",
+  kitchen: "/admin",
+  admin: "/admin",
 };
 
 function Toast({ message, type }) {
@@ -44,7 +44,7 @@ function SubmitBtn({ loading, label }) {
                  text-zinc-900 py-3.5 rounded-xl font-bold shadow-lg shadow-lime-500/25
                  transition-all flex items-center justify-center gap-2 mt-2">
       {loading
-        ? <><div className="w-5 h-5 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin"/>Processing…</>
+        ? <><div className="w-5 h-5 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" />Processing…</>
         : label}
     </button>
   );
@@ -54,58 +54,58 @@ export default function Login() {
   const navigate = useNavigate();
   const [role, setRole] = useState("student"); // student, stall_owner, admin
   const [authMode, setAuthMode] = useState("signin"); // signin, register
-  
-  const [loading,   setLoading]   = useState(false);
-  const [toast,     setToast]     = useState(null);
 
- useEffect(() => {
-  const token = localStorage.getItem("token");
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  if (!token) return;
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
-  try {
-    const u = JSON.parse(localStorage.getItem("user_data") || "{}");
+    if (!token) return;
 
-    const userRole = ALIAS[u.role] || u.role;
+    try {
+      const u = JSON.parse(localStorage.getItem("user_data") || "{}");
 
-    if (userRole === "admin") {
-      navigate("/admin");
+      const userRole = ALIAS[u.role] || u.role;
 
-    } else if (userRole === "stall_owner") {
+      if (userRole === "admin") {
+        navigate("/admin");
 
-      if (u.stall_id) {
-        navigate(`/kitchen/${u.stall_id}`);
+      } else if (userRole === "stall_owner") {
+
+        if (u.stall_id) {
+          navigate(`/kitchen/${u.stall_id}`);
+        } else {
+          localStorage.clear();
+        }
+
+      } else if (userRole === "student") {
+        navigate("/home");
+
       } else {
         localStorage.clear();
       }
 
-    } else if (userRole === "student") {
-      navigate("/home");
-
-    } else {
+    } catch (e) {
       localStorage.clear();
     }
-
-  } catch (e) {
-    localStorage.clear();
-  }
-}, [navigate]);
+  }, [navigate]);
 
   // Form states
-  const [siEmail,    setSiEmail]    = useState("");
+  const [siEmail, setSiEmail] = useState("");
   const [siPassword, setSiPassword] = useState("");
-  
-  const [stName,     setStName]     = useState("");
-  const [stEmail,    setStEmail]    = useState("");
-  const [stPhone,    setStPhone]    = useState("");
+
+  const [stName, setStName] = useState("");
+  const [stEmail, setStEmail] = useState("");
+  const [stPhone, setStPhone] = useState("");
   const [stCountryCode, setStCountryCode] = useState("+91");
   const [stPassword, setStPassword] = useState("");
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
-  
-  const [soStallName,setSoStallName]= useState("");
-  const [soOwnerName,setSoOwnerName]= useState("");
-  const [soEmail,    setSoEmail]    = useState("");
-  const [soPhone,    setSoPhone]    = useState("");
+
+  const [soStallName, setSoStallName] = useState("");
+  const [soOwnerName, setSoOwnerName] = useState("");
+  const [soEmail, setSoEmail] = useState("");
+  const [soPhone, setSoPhone] = useState("");
   const [soPassword, setSoPassword] = useState("");
 
   const showToast = (message, type = "error") => {
@@ -118,10 +118,10 @@ export default function Login() {
     setToast(null);
     try {
       const { data } = await login({ email, password });
-      localStorage.setItem("token",     data.token);
+      localStorage.setItem("token", data.token);
       localStorage.setItem("user_data", JSON.stringify(data.user));
       const userRole = ALIAS[data.user.role] || data.user.role;
-      
+
       if (userRole === "admin") {
         navigate("/admin");
       } else if (userRole === "stall_owner") {
@@ -171,11 +171,11 @@ export default function Login() {
     const clean = stPhone.replace(/\D/g, "");
     const fullPhone = `${stCountryCode}${clean}`;
     try {
-      await register({ 
-        name: stName, 
-        email: stEmail, 
+      await register({
+        name: stName,
+        email: stEmail,
         phone: fullPhone,
-        password: stPassword, 
+        password: stPassword,
         role: "student",
         firebase_token: idToken
       });
@@ -200,7 +200,7 @@ export default function Login() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-lime-500 rounded-xl flex items-center justify-center">
-              <img src={logo} alt="Easy Eats" className="w-8 h-8 filter brightness-0"/>
+              <img src={logo} alt="Easy Eats" className="w-8 h-8 filter brightness-0" />
             </div>
             <h1 className="text-3xl font-black tracking-tight text-white">Easy Eats</h1>
           </div>
@@ -219,7 +219,7 @@ export default function Login() {
         <div className="relative z-10 text-sm text-zinc-500 font-medium">
           © {new Date().getFullYear()} Easy Eats. All rights reserved.
         </div>
-        
+
         {/* Decorative elements */}
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-lime-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-40"></div>
         <div className="absolute top-1/4 -left-32 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
@@ -228,11 +228,11 @@ export default function Login() {
       {/* Right Auth Panel */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-white relative">
         <div className="w-full max-w-md mx-auto">
-          
+
           {/* Mobile Header */}
           <div className="md:hidden flex items-center justify-center gap-3 mb-8">
             <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-lg">
-              <img src={logo} alt="Easy Eats" className="w-6 h-6"/>
+              <img src={logo} alt="Easy Eats" className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-black text-zinc-900">Easy Eats</h1>
           </div>
@@ -242,7 +242,7 @@ export default function Login() {
               {isRegister ? "Create Account" : "Welcome Back"}
             </h2>
             <p className="text-gray-500">
-              {isRegister 
+              {isRegister
                 ? "Sign up to get started with Easy Eats."
                 : "Enter your credentials to access your account."}
             </p>
@@ -250,7 +250,7 @@ export default function Login() {
 
           {/* Role Toggle Tabs */}
           <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-8 relative">
-            <div 
+            <div
               className="absolute inset-y-1.5 bg-white rounded-xl shadow-sm transition-all duration-300 ease-out"
               style={{
                 width: "calc(33.333% - 4px)",
@@ -269,9 +269,8 @@ export default function Login() {
                   setToast(null);
                   if (r.id !== "student") setAuthMode("signin");
                 }}
-                className={`flex-1 py-2.5 text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1.5 relative z-10 transition-colors ${
-                  role === r.id ? "text-zinc-900" : "text-gray-500 hover:text-gray-700"
-                }`}
+                className={`flex-1 py-2.5 text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1.5 relative z-10 transition-colors ${role === r.id ? "text-zinc-900" : "text-gray-500 hover:text-gray-700"
+                  }`}
               >
                 <span className="text-lg leading-none">{r.icon}</span>
                 <span>{r.label}</span>
@@ -279,7 +278,7 @@ export default function Login() {
             ))}
           </div>
 
-          <Toast {...toast}/>
+          <Toast {...toast} />
 
           {/* Form Content */}
           <div className="animate-fade-in-up">
@@ -287,51 +286,55 @@ export default function Login() {
               /* Sign In Form (Shared for all roles conceptually, but we can pre-fill or guide) */
               <form onSubmit={handleSignIn} className="space-y-4">
                 <Input label="Email Address" type="email" value={siEmail}
-                  onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required/>
+                  onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required />
                 <Input label="Password" type="password" value={siPassword}
-                  onChange={e => setSiPassword(e.target.value)} placeholder="••••••••" required/>
-                
-                <div className="flex justify-end">
-                  <a href="#" className="text-sm font-bold text-lime-600 hover:text-lime-700">Forgot password?</a>
-                </div>
+                  onChange={e => setSiPassword(e.target.value)} placeholder="••••••••" required />
 
-                <SubmitBtn loading={loading} label="Sign In"/>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm font-bold text-lime-600 hover:text-lime-700"
+                >
+                  Forgot password?
+                </button>
+
+                <SubmitBtn loading={loading} label="Sign In" />
               </form>
             ) : (
               /* Register Forms */
-               role === "student" ? (
-                 <form onSubmit={handleStudentRegister} className="space-y-4">
-                   <Input label="Full Name" value={stName} onChange={e=>setStName(e.target.value)} placeholder="e.g. Arjun Kumar" required/>
-                   <Input label="College Email" type="email" value={stEmail} onChange={e=>setStEmail(e.target.value)} placeholder="student@college.edu" required/>
-                   
-                   <div>
-                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Phone Number</label>
-                     <div className="flex gap-2">
-                       <select 
-                         value={stCountryCode} 
-                         onChange={e => setStCountryCode(e.target.value)}
-                         className="border border-gray-200 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
-                       >
-                         <option value="+91">🇮🇳 +91</option>
-                         <option value="+1">🇺🇸 +1</option>
-                         <option value="+44">🇬🇧 +44</option>
-                         <option value="+971">🇦🇪 +971</option>
-                       </select>
-                       <input 
-                         type="tel" 
-                         value={stPhone} 
-                         onChange={e => setStPhone(e.target.value)} 
-                         placeholder="98765 43210" 
-                         required
-                         className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all placeholder:text-gray-400 bg-gray-50 focus:bg-white font-medium"
-                       />
-                     </div>
-                   </div>
+              role === "student" ? (
+                <form onSubmit={handleStudentRegister} className="space-y-4">
+                  <Input label="Full Name" value={stName} onChange={e => setStName(e.target.value)} placeholder="e.g. Arjun Kumar" required />
+                  <Input label="College Email" type="email" value={stEmail} onChange={e => setStEmail(e.target.value)} placeholder="student@college.edu" required />
 
-                   <Input label="Create Password" type="password" value={stPassword} onChange={e=>setStPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6}/>
-                   <SubmitBtn loading={loading} label="Create Student Account"/>
-                 </form>
-               ) : null
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Phone Number</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={stCountryCode}
+                        onChange={e => setStCountryCode(e.target.value)}
+                        className="border border-gray-200 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
+                      >
+                        <option value="+91">🇮🇳 +91</option>
+                        <option value="+1">🇺🇸 +1</option>
+                        <option value="+44">🇬🇧 +44</option>
+                        <option value="+971">🇦🇪 +971</option>
+                      </select>
+                      <input
+                        type="tel"
+                        value={stPhone}
+                        onChange={e => setStPhone(e.target.value)}
+                        placeholder="98765 43210"
+                        required
+                        className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all placeholder:text-gray-400 bg-gray-50 focus:bg-white font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <Input label="Create Password" type="password" value={stPassword} onChange={e => setStPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6} />
+                  <SubmitBtn loading={loading} label="Create Student Account" />
+                </form>
+              ) : null
             )}
           </div>
 
@@ -340,7 +343,7 @@ export default function Login() {
             {role === "student" && (
               <p className="text-sm text-gray-500 font-medium">
                 {isRegister ? "Already have an account? " : "New to Easy Eats? "}
-                <button 
+                <button
                   onClick={() => { setAuthMode(isRegister ? "signin" : "register"); setToast(null); }}
                   className="text-lime-600 font-bold hover:underline"
                 >
@@ -360,11 +363,11 @@ export default function Login() {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "🎓 Student",        email: "student@demo.com", role: "student" },
-                { label: "🏪 Campus Cafe",    email: "cafe@demo.com",    role: "stall_owner" },
-                { label: "🍔 Burger Hub",     email: "burger@demo.com",  role: "stall_owner" },
-                { label: "☕ Coffee Corner",  email: "coffee@demo.com",  role: "stall_owner" },
-                { label: "🛡️ Super Admin",  email: "admin@demo.com",   role: "admin" },
+                // { label: "🎓 Student", email: "student@demo.com", role: "student" },
+                { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
+                { label: "🍔 Burger Hub", email: "burger@demo.com", role: "stall_owner" },
+                { label: "☕ Coffee Corner", email: "coffee@demo.com", role: "stall_owner" },
+                { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
               ].filter(d => role === "admin" ? d.role === "admin" : true).map((d) => (
                 <button key={d.label} type="button"
                   onClick={() => {
@@ -386,13 +389,13 @@ export default function Login() {
         </div>
       </div>
 
-      <OTPModal 
+      <OTPModal
         isOpen={isOtpModalOpen}
         phone={`${stCountryCode}${stPhone.replace(/\D/g, "")}`}
         onVerify={handleOtpVerified}
         onClose={() => setIsOtpModalOpen(false)}
       />
-      
+
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(10px); }

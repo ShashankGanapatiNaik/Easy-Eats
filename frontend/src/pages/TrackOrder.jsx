@@ -3,11 +3,11 @@ import { useState, useEffect, useRef } from "react";
 import { trackOrder } from "../api";
 
 const STATUS_STEPS = [
-  { key: "Placed",       icon: "🧾", label: "Order Placed",    desc: "Your order is confirmed" },
-  { key: "Accepted",     icon: "✅", label: "Accepted",         desc: "Stall is preparing your order" },
-  { key: "Preparing",    icon: "👨‍🍳", label: "Preparing",        desc: "Fresh food in the making" },
-  { key: "Almost Ready", icon: "🔔", label: "Almost Ready",     desc: "Ready to be packed" },
-  { key: "Ready",        icon: "🎉", label: "Ready for Pickup", desc: "Head to the stall now!" },
+  { key: "Placed", icon: "🧾", label: "Order Placed", desc: "Your order is confirmed" },
+  { key: "Accepted", icon: "✅", label: "Accepted", desc: "Stall is preparing your order" },
+  { key: "Preparing", icon: "👨‍🍳", label: "Preparing", desc: "Fresh food in the making" },
+  { key: "Almost Ready", icon: "🔔", label: "Almost Ready", desc: "Ready to be packed" },
+  { key: "Ready", icon: "🎉", label: "Ready for Pickup", desc: "Head to the stall now!" },
 ];
 
 const STATUS_INDEX = Object.fromEntries(STATUS_STEPS.map((s, i) => [s.key, i]));
@@ -23,7 +23,7 @@ function ReadyToast({ show, pickup_slot, onClose }) {
 
   return (
     <div className="fixed top-4 left-0 right-0 z-[100] flex justify-center px-4"
-         style={{ animation: "slideDown 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      style={{ animation: "slideDown 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
       <style>{`@keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
       <div className="bg-lime-500 text-zinc-900 rounded-2xl px-5 py-4 shadow-2xl flex items-start gap-3 max-w-sm w-full">
         <span className="text-2xl flex-shrink-0">🎉</span>
@@ -41,10 +41,10 @@ function ReadyToast({ show, pickup_slot, onClose }) {
 }
 
 function TrackOrder() {
-  const { id }     = useParams();
-  const location   = useLocation();
-  const navigate   = useNavigate();
-  const init       = location.state || {};
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const init = location.state || {};
 
   const [orderData, setOrderData] = useState({
     status: "Placed",
@@ -54,27 +54,27 @@ function TrackOrder() {
     total: init.total || 0,
     items: [],
   });
-  const [loading,   setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showToast, setShowToast] = useState(false);
-  const prevStatus  = useRef(null);
+  const prevStatus = useRef(null);
   const intervalRef = useRef(null);
-  const audioRef    = useRef(null);
+  const audioRef = useRef(null);
 
   const fetchTrack = async () => {
     try {
-      const res   = await trackOrder(id);
-      const data  = res.data;
+      const res = await trackOrder(id);
+      const data = res.data;
       const oldSt = prevStatus.current;
       const newSt = data.status;
 
       // Show toast + sound when status changes TO Ready
       if (oldSt && oldSt !== "Ready" && newSt === "Ready") {
         setShowToast(true);
-        audioRef.current?.play().catch(() => {});
+        audioRef.current?.play().catch(() => { });
       }
       prevStatus.current = newSt;
       setOrderData(data);
-    } catch {}
+    } catch { }
     finally { setLoading(false); }
   };
 
@@ -85,13 +85,13 @@ function TrackOrder() {
   }, [id]);
 
   useEffect(() => {
-    if (["Collected","Cancelled"].includes(orderData.status)) {
+    if (["Collected", "Cancelled"].includes(orderData.status)) {
       clearInterval(intervalRef.current);
     }
   }, [orderData.status]);
 
   const currentStep = STATUS_INDEX[orderData.status] ?? 0;
-  const isReady     = orderData.status === "Ready";
+  const isReady = orderData.status === "Ready";
   const isCancelled = orderData.status === "Cancelled";
 
   return (
@@ -109,7 +109,7 @@ function TrackOrder() {
         <button onClick={() => navigate("/home")}
           className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </button>
         <h1 className="text-xl font-bold text-zinc-900">Track Order</h1>
@@ -158,20 +158,19 @@ function TrackOrder() {
             <h3 className="font-bold text-zinc-900 mb-4 text-sm">Order Progress</h3>
             <div className="space-y-0">
               {STATUS_STEPS.map((step, i) => {
-                const done    = i < currentStep;
+                const done = i < currentStep;
                 const current = i === currentStep;
                 return (
                   <div key={step.key} className="flex items-start gap-3">
                     <div className="flex flex-col items-center flex-shrink-0">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                        done    ? "bg-lime-500 text-zinc-900"
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${done ? "bg-lime-500 text-zinc-900"
                         : current ? "bg-zinc-900 text-white ring-4 ring-zinc-900/20"
-                        : "bg-gray-100 text-gray-400"
-                      }`}>
+                          : "bg-gray-100 text-gray-400"
+                        }`}>
                         {done ? "✓" : step.icon}
                       </div>
                       {i < STATUS_STEPS.length - 1 && (
-                        <div className={`w-0.5 h-8 mt-1 transition-all ${done ? "bg-lime-500" : "bg-gray-100"}`}/>
+                        <div className={`w-0.5 h-8 mt-1 transition-all ${done ? "bg-lime-500" : "bg-gray-100"}`} />
                       )}
                     </div>
                     <div className="pt-1 pb-8">
