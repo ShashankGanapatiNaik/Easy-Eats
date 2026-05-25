@@ -1,0 +1,260 @@
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useCart } from "../context/CartContext";
+import { placeOrder } from "../api";
+import api from "../api";
+
+// Load Razorpay script dynamically
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload  = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+function Cart() {
+  const navigate = useNavigate();
+  const { cart, increaseQty, decreaseQty, clearCart, cartTotal, stallId } = useCart();
+  const [instructions, setInstructions] = useState("");
+  const [paying,  setPaying]  = useState(false);
+  const [error,   setError]   = useState(null);
+
+  // ── Pay with Razorpay → then place order ──────────────────────────────────
+  const handlePayAndOrder = async () => {
+    if (cart.length === 0) return;
+    setError(null);
+    setPaying(true);
+
+    try {
+      // 1️⃣ Load Razorpay SDK
+      const loaded = await loadRazorpay();
+      if (!loaded) {
+        setError("Razorpay failed to load. Check your internet connection.");
+        setPaying(false);
+        return;
+      }
+
+      // 2️⃣ Create Razorpay order on backend → get order_id
+      const { data: rzp } = await api.post("/payments/create-order", {
+        amount: Math.round(cartTotal),   // backend expects ₹ (converts to paise)
+      });
+
+      // 3️⃣ Open Razorpay checkout
+      const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
+
+      await new Promise((resolve, reject) => {
+        const options = {
+          key:         rzp.key,             // Razorpay Key ID from backend
+          amount:      rzp.amount,          // in paise
+          currency:    "INR",
+          name:        "Easy Eats",
+          description: "Campus Food Order",
+          order_id:    rzp.razorpay_order_id,
+          prefill: {
+            name:  userData.name  || "",
+            email: userData.email || "",
+          },
+          theme: { color: "#84cc16" },
+          modal: {
+            ondismiss: () => reject(new Error("Payment cancelled")),
+          },
+          handler: async (response) => {
+            try {
+              // 4️⃣ Verify payment on backend
+              await api.post("/payments/verify", {
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+              });
+              resolve(response);
+            } catch (err) {
+              reject(new Error("Payment verification failed"));
+            }
+          },
+        };
+
+        const rzpInstance = new window.Razorpay(options);
+        rzpInstance.open();
+      });
+
+      // 5️⃣ Payment verified → place the order
+      const orderBody = {
+        stall_id: stallId,
+        items: cart.map((item) => ({
+          menu_item_id:   item.id,
+          qty:            item.qty,
+          customizations: item.selectedCustomizations || [],
+        })),
+        special_instructions: instructions || null,
+        payment_method: "razorpay",
+        payment_status: "paid",
+      };
+
+      const { data } = await placeOrder(orderBody);
+      clearCart();
+
+      navigate(`/track/${data.order_id}`, {
+        state: {
+          predicted_prep_min:   data.predicted_prep_min,
+          estimated_ready_time: data.estimated_ready_time,
+          pickup_slot:          data.pickup_slot,
+          total:                data.total,
+        },
+      });
+
+    } catch (e) {
+      if (e.message === "Payment cancelled") {
+        setError("Payment was cancelled. Your cart is safe — try again.");
+      } else {
+        setError(e.response?.data?.detail || e.message || "Something went wrong.");
+      }
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  // ── Empty cart ────────────────────────────────────────────────────────────
+  if (cart.length === 0) {
+    return (
+      <div className="max-w-md mx-auto min-h-screen bg-zinc-50 flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🛒</div>
+          <h2 className="text-2xl font-bold text-zinc-900 mb-2">Cart is empty</h2>
+          <p className="text-gray-400 mb-8">Add items from a stall to get started.</p>
+          <button
+            onClick={() => navigate("/home")}
+            className="bg-lime-500 text-zinc-900 px-8 py-3 rounded-full font-bold hover:bg-lime-600 shadow-md transition-all"
+          >
+            Browse Stalls
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Cart ──────────────────────────────────────────────────────────────────
+  return (
+    <div className="max-w-md mx-auto min-h-screen bg-zinc-50 pb-36">
+
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-4 sticky top-0 z-20">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+          </svg>
+        </button>
+        <h1 className="text-xl font-bold text-zinc-900">Your Cart</h1>
+        <span className="ml-auto text-sm text-gray-400">
+          {cart.reduce((s, i) => s + i.qty, 0)} items
+        </span>
+      </div>
+
+      <div className="px-4 mt-5 space-y-4">
+
+        {/* Items */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          {cart.map((item, index) => (
+            <div
+              key={item.id}
+              className={`flex items-center gap-3 p-4 ${index < cart.length - 1 ? "border-b border-gray-50" : ""}`}
+            >
+              {item.image_url && (
+                <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-zinc-900 text-sm truncate">{item.name}</p>
+                <p className="text-sm font-bold text-lime-600 mt-0.5">
+                  ₹{(item.discounted_price || item.price) * item.qty}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-2 rounded-full flex-shrink-0">
+                <button onClick={() => decreaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base active:scale-90">−</button>
+                <span className="w-5 text-center font-bold text-sm">{item.qty}</span>
+                <button onClick={() => increaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base text-lime-400 active:scale-90">+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Special instructions */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
+          <label className="block text-sm font-bold text-zinc-900 mb-2">
+            Special Instructions <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <textarea
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            placeholder="e.g. No onions, extra sauce…"
+            rows={2}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-lime-500 resize-none transition-all"
+          />
+        </div>
+
+        {/* Bill summary */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-bold text-zinc-900 mb-3">Bill Summary</h3>
+          <div className="space-y-1.5">
+            {cart.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm text-gray-600">
+                <span>{item.name} × {item.qty}</span>
+                <span>₹{(item.discounted_price || item.price) * item.qty}</span>
+              </div>
+            ))}
+            <div className="border-t border-gray-100 pt-3 mt-2 flex justify-between font-bold text-zinc-900">
+              <span>Total</span>
+              <span>₹{cartTotal.toFixed(0)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Razorpay badge */}
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="#528FF0"/>
+          </svg>
+          Secured by Razorpay · UPI · Cards · Netbanking
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-600 font-medium">
+            ⚠️ {error}
+          </div>
+        )}
+      </div>
+
+      {/* Sticky pay button */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4">
+        <div className="max-w-md mx-auto">
+          <button
+            onClick={handlePayAndOrder}
+            disabled={paying}
+            className="w-full bg-lime-500 hover:bg-lime-600 active:scale-[0.98] disabled:opacity-60 text-zinc-900 py-4 rounded-2xl font-bold text-base shadow-xl shadow-lime-500/20 transition-all flex items-center justify-center gap-3"
+          >
+            {paying ? (
+              <>
+                <div className="w-5 h-5 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" />
+                Processing…
+              </>
+            ) : (
+              <>
+                💳 Pay ₹{cartTotal.toFixed(0)} & Place Order
+              </>
+            )}
+          </button>
+          <p className="text-center text-xs text-gray-400 mt-2">
+            You'll be redirected to Razorpay to complete payment
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Cart;
