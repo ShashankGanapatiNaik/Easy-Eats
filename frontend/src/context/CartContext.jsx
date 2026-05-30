@@ -51,6 +51,17 @@ export function CartProvider({ children }) {
 
   const clearCart = useCallback(() => setCart([]), []);
 
+  // addItem: directly adds an item with a custom payload (used for recommendations)
+  const addItem = useCallback((item) => {
+    setCart((prev) => {
+      const existing = prev.find((p) => p.id === item.id);
+      if (existing) {
+        return prev.map((p) => p.id === item.id ? { ...p, qty: p.qty + (item.qty || 1) } : p);
+      }
+      return [...prev, { ...item, qty: item.qty || 1 }];
+    });
+  }, []);
+
   const reorderItems = useCallback((items, stallId, stallName) => {
     const mapped = items.map((item) => ({
       id:           item.menu_item_id,
@@ -73,10 +84,11 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{
-      cart, addToCart, increaseQty, decreaseQty, clearCart, reorderItems,
+      cart, addToCart, addItem, increaseQty, decreaseQty, clearCart, reorderItems,
       cartTotal, cartCount, stallId, stallName,
       pendingItem, confirmReplace, cancelReplace,
     }}>
+
       {children}
     </CartContext.Provider>
   );

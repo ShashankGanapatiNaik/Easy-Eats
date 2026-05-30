@@ -1,322 +1,477 @@
 // src/components/ai/AIAssistant.jsx
-// Voice + Chat AI ordering assistant with wallet payment confirmation
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useCart } from "../../context/CartContext";
-import { useSpeechToText, useTextToSpeech } from "../../hooks/useVoice";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from "react";
+
+import {
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+
+import {
+  useSpeechToText,
+  useTextToSpeech,
+} from "../../hooks/useVoice";
+
 import api from "../../api";
 
-// ── API calls ─────────────────────────────────────────────────────────────────
-const fetchBalance = () => api.get("/wallet/balance");
-const deductWallet = (body) => api.post("/wallet/deduct", body);
-const fetchAllStalls = () => api.get("/stalls/");
-const fetchStallMenu = (id) => api.get(`/menu/${id}/available`);
-const placeOrderAPI = (data) => api.post("/orders/place", data);
-const fetchMyOrders = () => api.get("/orders/my");
+// ─────────────────────────────────────────────────────────────
+// API CALLS
+// ─────────────────────────────────────────────────────────────
+const fetchBalance = () =>
+  api.get("/wallet/balance");
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user_data") || "{}");
-  } catch {
-    return {};
-  }
-}
+const deductWallet = (body) =>
+  api.post("/wallet/deduct", body);
 
+const topUpWallet = (body) =>
+  api.post("/wallet/topup", body);
+
+const fetchAllStalls = () =>
+  api.get("/stalls/");
+
+const fetchStallMenu = (id) =>
+  api.get(`/menu/${id}`);
+
+const placeOrderAPI = (data) =>
+  api.post("/orders/place", data);
+
+const fetchMyOrders = () =>
+  api.get("/orders/my");
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 function pickupCode(orderId) {
-  return orderId?.slice(-4).toUpperCase() || "----";
+
+  return (
+    orderId?.slice(-4).toUpperCase() ||
+    "----"
+  );
 }
 
-// ── Voice wave animation ──────────────────────────────────────────────────────
+function getShortSpeech(text) {
+
+  if (!text) return "";
+
+  let cleaned =
+    text.replace(/[^\w\s₹.]/g, "");
+
+  const firstSentence =
+
+    cleaned.split(".")[0] ||
+
+    cleaned.split("!")[0] ||
+
+    cleaned.split("?")[0];
+
+  return firstSentence.slice(0, 120);
+}
+
+// ─────────────────────────────────────────────────────────────
+// VOICE WAVE
+// ─────────────────────────────────────────────────────────────
 function VoiceWave({ active }) {
+
   return (
     <div
-      className={`flex items-center gap-0.5 h-5 ${active ? "opacity-100" : "opacity-30"
+      className={`flex items-center gap-0.5 h-5 ${active
+        ? "opacity-100"
+        : "opacity-30"
         }`}
     >
+
       {[1, 2, 3, 4, 3, 2, 1].map((h, i) => (
+
         <div
           key={i}
-          className="w-1 bg-lime-500 rounded-full transition-all"
+          className="w-1 bg-lime-500 rounded-full"
           style={{
-            height: active ? `${h * 4 + 4}px` : "4px",
-            animationName: active ? "wave" : "none",
-            animationDuration: `${0.5 + i * 0.1}s`,
-            animationTimingFunction: "ease-in-out",
-            animationIterationCount: "infinite",
-            animationDirection: "alternate",
+            height: active
+              ? `${h * 4 + 4}px`
+              : "4px",
+
+            animationName:
+              active
+                ? "wave"
+                : "none",
+
+            animationDuration:
+              `${0.5 + i * 0.1}s`,
+
+            animationIterationCount:
+              "infinite",
+
+            animationDirection:
+              "alternate",
           }}
         />
+
       ))}
 
       <style>{`
         @keyframes wave {
           from { transform: scaleY(0.5); }
-          to   { transform: scaleY(1.4); }
+          to { transform: scaleY(1.4); }
         }
       `}</style>
+
     </div>
   );
 }
 
-// ── Typing animation ──────────────────────────────────────────────────────────
-function TypingDots() {
-  return (
-    <div className="flex gap-1 items-center px-4 py-3 bg-gray-100 rounded-2xl rounded-bl-sm w-fit">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
-    </div>
-  );
-}
+// ─────────────────────────────────────────────────────────────
+// ORDER CONFIRM CARD
+// ─────────────────────────────────────────────────────────────
+function OrderConfirmCard({
+  order,
+  onConfirm,
+  onCancel,
+}) {
 
-// ── Message bubble ────────────────────────────────────────────────────────────
-function Bubble({ msg }) {
-  const isUser = msg.role === "user";
-
-  return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
-      {!isUser && (
-        <div
-          className="w-7 h-7 bg-lime-500 rounded-full flex items-center justify-center
-                     text-xs font-black text-zinc-900 flex-shrink-0 mr-2 mt-1"
-        >
-          AI
-        </div>
-      )}
-
-      <div className="max-w-[80%]">
-        <div
-          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${isUser
-            ? "bg-zinc-900 text-white rounded-br-sm"
-            : "bg-gray-100 text-zinc-800 rounded-bl-sm"
-            }`}
-        >
-          {msg.content}
-        </div>
-
-        {/* Order confirmation card */}
-        {msg.orderIntent && !msg.confirmed && (
-          <OrderConfirmCard
-            order={msg.orderIntent}
-            messageId={msg.id}
-            onConfirm={msg.onConfirm}
-            onCancel={msg.onCancel}
-          />
-        )}
-
-        {/* Success card */}
-        {msg.success && (
-          <div className="mt-2 bg-lime-50 border border-lime-200 rounded-2xl p-3">
-            <p className="text-lime-700 font-bold text-sm">
-              ✅ {msg.success}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Order confirm card ────────────────────────────────────────────────────────
-function OrderConfirmCard({ order, onConfirm, onCancel }) {
   if (!order) return null;
 
   return (
-    <div className="mt-2 bg-white border border-lime-200 rounded-2xl p-4 shadow-sm">
-      <p className="font-bold text-zinc-900 text-sm mb-2">
+    <div className="mt-3 bg-white border border-lime-200 rounded-2xl p-4">
+
+      <p className="font-bold text-sm mb-2">
         🧾 Order Summary
       </p>
 
-      <p className="text-xs text-gray-500 font-medium mb-2">
+      <p className="text-xs text-gray-500 mb-3">
         {order.stall_name}
       </p>
 
       <div className="space-y-1 mb-3">
+
         {order.items?.map((item, i) => (
-          <div key={i} className="flex justify-between text-sm text-gray-700">
+
+          <div
+            key={i}
+            className="flex justify-between text-sm"
+          >
+
             <span>
               {item.qty}× {item.name}
             </span>
 
-            <span>₹{(item.price * item.qty).toFixed(0)}</span>
+            <span>
+              ₹{(
+                item.price * item.qty
+              ).toFixed(0)}
+            </span>
+
           </div>
+
         ))}
+
       </div>
 
-      <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-zinc-900 mb-3">
+      <div className="border-t pt-2 flex justify-between font-bold mb-3">
+
         <span>Total</span>
-        <span>₹{order.total?.toFixed(0)}</span>
+
+        <span>
+          ₹{Number(order.total).toFixed(0)}
+        </span>
+
       </div>
 
       <div className="flex gap-2">
+
         <button
           onClick={onConfirm}
-          className="flex-1 bg-lime-500 hover:bg-lime-600 text-zinc-900 py-2.5 rounded-xl
-                     font-bold text-sm transition-all"
+          className="flex-1 bg-lime-500 hover:bg-lime-600 py-2 rounded-xl font-bold text-sm"
         >
           ✓ Confirm & Pay
         </button>
 
         <button
           onClick={onCancel}
-          className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl
-                     font-bold text-sm transition-all"
+          className="px-4 py-2 bg-gray-100 rounded-xl text-sm"
         >
           Cancel
         </button>
+
       </div>
+
     </div>
   );
 }
 
-// ── Quick prompts ─────────────────────────────────────────────────────────────
-const QUICK_PROMPTS = [
-  "What's available now?",
-  "Suggest something under ₹100",
-  "Repeat my last order",
-  "Check my wallet balance",
-];
+// ─────────────────────────────────────────────────────────────
+// CHAT BUBBLE
+// ─────────────────────────────────────────────────────────────
+function Bubble({ msg }) {
 
-// ══════════════════════════════════════════════════════════════════════════════
+  const isUser =
+    msg.role === "user";
+
+  return (
+    <div
+      className={`flex ${isUser
+        ? "justify-end"
+        : "justify-start"
+        } mb-3`}
+    >
+
+      {!isUser && (
+
+        <div className="w-7 h-7 bg-lime-500 rounded-full flex items-center justify-center text-xs font-black mr-2 mt-1">
+          AI
+        </div>
+
+      )}
+
+      <div className="max-w-[80%]">
+
+        <div
+          className={`px-4 py-3 rounded-2xl text-sm ${isUser
+            ? "bg-zinc-900 text-white"
+            : "bg-gray-100"
+            }`}
+        >
+          {msg.content}
+        </div>
+
+        {msg.orderIntent &&
+          !msg.confirmed && (
+
+            <OrderConfirmCard
+              order={msg.orderIntent}
+              onConfirm={msg.onConfirm}
+              onCancel={msg.onCancel}
+            />
+
+          )}
+
+      </div>
+
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 export default function AIAssistant() {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const token = localStorage.getItem("token");
 
-  const { addToCart, clearCart } = useCart();
+  const navigate =
+    useNavigate();
 
-  const [open, setOpen] = useState(false);
+  const { pathname } =
+    useLocation();
 
-  const [messages, setMessages] = useState([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Hi! 👋 I'm EatsBot, your AI food assistant. I can take orders, suggest food, and pay using your wallet. Try saying or typing what you'd like!",
-    },
-  ]);
+  const token =
+    localStorage.getItem("token");
 
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [balance, setBalance] = useState(0);
-  const [menuContext, setMenuContext] = useState("");
-  const [lastOrder, setLastOrder] = useState(null);
-  const [pendingOrder, setPendingOrder] = useState(null);
+  const [open, setOpen] =
+    useState(false);
 
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
-  const msgIdRef = useRef(0);
+  const [messages, setMessages] =
+    useState([
+      {
+        id: "welcome",
 
-  const nextId = () => String(++msgIdRef.current);
+        role: "assistant",
 
-  // ── Text-to-speech ────────────────────────────────────────────────────────
-  const { speaking, speak, stopSpeaking } = useTextToSpeech();
-
-  // ── Speech-to-text ────────────────────────────────────────────────────────
-  const { listening, start: startListening, stop: stopListening } =
-    useSpeechToText({
-      onResult: (text) => {
-        if (!text?.trim()) return;
-
-        setInput(text);
-
-        setTimeout(() => handleSend(text), 300);
+        content:
+          "Hi 👋 I'm EatsBot. I can order food from live hotel menu using your wallet.",
       },
+    ]);
 
-      onEnd: () => { },
-    });
+  const [input, setInput] =
+    useState("");
 
-  // ── Scroll to bottom on new messages ─────────────────────────────────────
+  const [loading, setLoading] =
+    useState(false);
+
+  const [balance, setBalance] =
+    useState(0);
+
+  const [menuContext, setMenuContext] =
+    useState("");
+
+  const [lastOrder, setLastOrder] =
+    useState(null);
+
+  const [pendingOrder, setPendingOrder] =
+    useState(null);
+
+  const bottomRef =
+    useRef(null);
+
+  const inputRef =
+    useRef(null);
+
+  const msgIdRef =
+    useRef(0);
+
+  const nextId = () =>
+    String(++msgIdRef.current);
+
+  const {
+    speaking,
+    speak,
+    stopSpeaking,
+  } = useTextToSpeech();
+
+  const {
+    listening,
+    start: startListening,
+    stop: stopListening,
+  } = useSpeechToText({
+
+    continuous: true,
+
+    interimResults: false,
+
+    onResult: (text) => {
+
+      if (!text?.trim()) return;
+
+      if (speaking) {
+        stopSpeaking();
+      }
+
+      setInput(text);
+
+      setTimeout(() => {
+        handleSend(text);
+      }, 300);
+    },
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // CLEANUP
+  // ─────────────────────────────────────────────────────────
   useEffect(() => {
+
+    return () => {
+
+      stopListening();
+
+      stopSpeaking();
+
+    };
+
+  }, []);
+
+  // ─────────────────────────────────────────────────────────
+  // SCROLL
+  // ─────────────────────────────────────────────────────────
+  useEffect(() => {
+
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
+
   }, [messages, loading]);
 
-  // ── Focus input when opened ───────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // LOAD CONTEXT
+  // ─────────────────────────────────────────────────────────
   useEffect(() => {
+
     if (open) {
+
       loadContext();
 
-      setTimeout(() => inputRef.current?.focus(), 200);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
+
     }
+
   }, [open]);
 
-  // ── Load balance + menu context ───────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // LOAD MENU FROM MONGODB
+  // ─────────────────────────────────────────────────────────
   const loadContext = async () => {
     try {
-      const [balRes, stallsRes, ordersRes] = await Promise.all([
-        fetchBalance(),
-        fetchAllStalls(),
-        fetchMyOrders(),
-      ]);
+      // 1. Fetch Wallet Balance (gracefully handle auth failure)
+      try {
+        const balRes = await fetchBalance();
+        const walletBalance = Number(balRes.data.balance || 0);
+        setBalance(walletBalance);
+      } catch (err) {
+        console.error("Wallet Fetch Error:", err);
+      }
 
-      setBalance(balRes.data.balance);
+      // 2. Fetch Stalls list (public, doesn't need auth)
+      let stalls = [];
+      try {
+        const stallsRes = await fetchAllStalls();
+        stalls = stallsRes.data || [];
+      } catch (err) {
+        console.error("Stalls Fetch Error:", err);
+      }
 
-      // Build compact menu context for AI
-      const stalls = stallsRes.data
-        .filter((s) => s.is_open)
-        .slice(0, 3);
+      // 3. Fetch My Orders (gracefully handle auth failure)
+      try {
+        const ordersRes = await fetchMyOrders();
+        const lastO = ordersRes.data?.[0];
+        if (lastO) {
+          setLastOrder(
+            JSON.stringify({
+              stall: lastO.stall_name,
+              total: lastO.total_amount || lastO.total,
+              items: lastO.items,
+            })
+          );
+        }
+      } catch (err) {
+        console.error("Orders Fetch Error:", err);
+      }
 
-      const menuItems = await Promise.all(
-        stalls.map(async (s) => {
-          try {
-            const m = await fetchStallMenu(s.id);
+      // 4. Fetch Menus for all stalls (open and closed)
+      if (stalls.length > 0) {
+        const menuItems = await Promise.all(
+          stalls.map(async (stall) => {
+            try {
+              const realStallId = String(stall._id || stall.id);
+              const menuRes = await fetchStallMenu(realStallId);
 
-            const items = Object.values(m.data)
-              .flat()
-              .slice(0, 3)
-              .map((i) => ({
-                name: i.name,
-                price: i.price,
-              }));
+              // Flatten grouped items
+              const flatItems = Object.values(menuRes.data || {}).flat();
 
-            return {
-              stall_id: s.id,
-              stall: s.name,
-              items,
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      const compactMenu = menuItems
-        .filter(Boolean)
-        .map((s) => ({
-          stall: s.stall,
-          items: s.items,
-        }));
-
-      setMenuContext(
-        JSON.stringify(compactMenu).slice(0, 1200)
-      );
-
-      // Last order for repeat
-      const lastO = ordersRes.data?.[0];
-
-      if (lastO) {
-        setLastOrder(
-          JSON.stringify({
-            stall: lastO.stall_name,
-            total: lastO.total_amount,
-          }).slice(0, 200)
+              return {
+                stall_id: realStallId,
+                stall_name: stall.name,
+                is_open: stall.is_open !== false, // Include stall open/closed status
+                items: flatItems.map((i) => ({
+                  id: String(i._id || i.id),
+                  name: i.name,
+                  price: i.discounted_price || i.price,
+                  category: i.category,
+                  is_veg: i.is_veg,
+                  is_available: i.is_available !== false, // Include item availability status
+                  prep_time_min: i.prep_time_min || 10,
+                })),
+              };
+            } catch (err) {
+              console.error(`Menu Fetch Error for Stall ${stall.name}:`, err);
+              return null;
+            }
+          })
         );
+
+        const validMenus = menuItems.filter(Boolean);
+        setMenuContext(JSON.stringify(validMenus));
       }
     } catch (err) {
-      console.error("Context load failed:", err);
+      console.error("Context Error:", err);
     }
   };
 
-  // ── Add message ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // ADD MESSAGE
+  // ─────────────────────────────────────────────────────────
   const addMsg = (msg) => {
+
     setMessages((prev) => [
       ...prev,
       {
@@ -326,124 +481,229 @@ export default function AIAssistant() {
     ]);
   };
 
-  // ── Send message ───────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // SEND MESSAGE
+  // ─────────────────────────────────────────────────────────
   const handleSend = useCallback(
-    async (text) => {
-      const content = (text || input).trim();
 
-      if (!content || loading) return;
+    async (text) => {
+
+      const content =
+        (text || input).trim();
+
+      if (!content || loading)
+        return;
 
       setInput("");
-      stopSpeaking();
 
-      // Add user message
       addMsg({
         role: "user",
         content,
       });
 
+      // CONVERSATIONAL WALLET ORDER CONFIRMATION / BOOKING FLOW
+      if (pendingOrder) {
+        const lowerText = content.toLowerCase().trim();
+
+        // Check for confirmation keywords
+        const isConfirm = [
+          "yes", "confirm", "confirm and pay", "book", "book it", "order", "order it", "pay", "pay now", "proceed", "ok", "okay", "sure", "go ahead", "do it", "y"
+        ].some(kw => lowerText === kw || lowerText.startsWith(kw + " ") || lowerText.endsWith(" " + kw));
+
+        // Check for cancellation keywords
+        const isCancel = [
+          "no", "cancel", "stop", "don't", "dont", "never mind", "nevermind", "n"
+        ].some(kw => lowerText === kw || lowerText.startsWith(kw + " ") || lowerText.endsWith(" " + kw));
+
+        if (isConfirm) {
+          const { order, msgId } = pendingOrder;
+          setPendingOrder(null);
+          await handleConfirmOrder(order, msgId);
+          return;
+        } else if (isCancel) {
+          const { msgId } = pendingOrder;
+          setPendingOrder(null);
+          handleCancelOrder(msgId);
+          return;
+        } else {
+          // If the user typed/said a new query instead of confirming, clear the pending order
+          setPendingOrder(null);
+        }
+      }
+
       setLoading(true);
 
       try {
-        // LIMIT HISTORY
-        const history = messages
-          .filter((m) => !m.orderIntent && !m.success)
-          .slice(-4)
-          .map((m) => ({
-            role: m.role,
-            content: m.content.slice(0, 250),
-          }));
+
+        // LIVE WALLET
+        const walletRes =
+          await fetchBalance();
+
+        const liveWalletBalance =
+          Number(
+            walletRes.data.balance || 0
+          );
+
+        setBalance(
+          liveWalletBalance
+        );
+
+        // CHAT HISTORY
+        const history =
+          messages
+            .slice(-4)
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+            }));
 
         history.push({
           role: "user",
-          content: content.slice(0, 250),
+          content,
         });
 
-        // TOKEN SAFETY
-        const estimatedSize =
-          JSON.stringify(history).length +
-          menuContext.length +
-          (lastOrder?.length || 0);
+        // AI REQUEST
+        const { data } =
+          await api.post(
+            "/ai/chat",
+            {
+              messages: history,
 
-        console.log("Estimated Size:", estimatedSize);
+              wallet_balance:
+                liveWalletBalance,
 
-        if (estimatedSize > 4500) {
-          addMsg({
-            role: "assistant",
-            content:
-              "Conversation too long. Please refresh chat.",
-          });
+              menu_context:
+                menuContext,
 
-          setLoading(false);
-          return;
-        }
-
-        const { data } = await api.post("/ai/chat", {
-          messages: history,
-          wallet_balance: balance,
-          menu_context: menuContext,
-          last_order: lastOrder,
-        });
+              last_order:
+                lastOrder,
+            }
+          );
 
         const aiContent =
-          data.message || "Sorry, I didn't understand that.";
+          data.message || "Sorry.";
 
-        speak(aiContent);
+        // VOICE
+        speak(
+          getShortSpeech(
+            aiContent
+          )
+        );
 
-        // Order flow
+        // CONVERSATIONAL WALLET TOP-UP
+        if (data.intent === "wallet" && data.topup_amount) {
+          try {
+            const topupRes = await topUpWallet({ amount: Number(data.topup_amount) });
+            const newBal = Number(topupRes.data.balance || 0);
+            setBalance(newBal);
+
+            const successMsg = `💰 Success! Added ₹${data.topup_amount} to your wallet. New balance: ₹${newBal}.`;
+            addMsg({
+              role: "assistant",
+              content: successMsg,
+            });
+            speak(getShortSpeech(successMsg));
+            return;
+          } catch (topupErr) {
+            console.error("Wallet Topup Error:", topupErr);
+          }
+        }
+
+        // ORDER FLOW
         if (
           data.intent === "order" &&
           data.order &&
           data.requires_confirmation
         ) {
-          const orderData = data.order;
 
-          setPendingOrder(orderData);
+          const orderData =
+            data.order;
 
-          const msgId = nextId();
+          const msgId =
+            nextId();
+
+          // Save pending order for conversational confirmation
+          setPendingOrder({ order: orderData, msgId });
 
           setMessages((prev) => [
             ...prev,
             {
               id: msgId,
-              role: "assistant",
-              content: aiContent,
-              orderIntent: orderData,
-              confirmed: false,
-              onConfirm: () =>
-                handleConfirmOrder(orderData, msgId),
 
-              onCancel: () =>
-                handleCancelOrder(msgId),
+              role: "assistant",
+
+              content:
+                aiContent,
+
+              orderIntent:
+                orderData,
+
+              confirmed: false,
+
+              onConfirm: () => {
+                setPendingOrder(null);
+                handleConfirmOrder(
+                  orderData,
+                  msgId
+                );
+              },
+
+              onCancel: () => {
+                setPendingOrder(null);
+                handleCancelOrder(
+                  msgId
+                );
+              },
             },
           ]);
+
         } else {
+
           addMsg({
             role: "assistant",
             content: aiContent,
           });
-        }
-      } catch (e) {
-        console.error("AI Error:", e);
 
-        const errDetail =
-          e.response?.data?.error?.message ||
-          e.response?.data?.detail ||
-          "Oops! Something went wrong. Please try again. 😅";
+        }
+
+      } catch (e) {
+
+        console.error(
+          "AI Error:",
+          e
+        );
 
         addMsg({
           role: "assistant",
-          content: errDetail,
+          content:
+            "Something went wrong.",
         });
+
       } finally {
+
         setLoading(false);
+
       }
     },
-    [input, loading, messages, balance, menuContext, lastOrder]
+
+    [
+      input,
+      loading,
+      messages,
+      menuContext,
+      lastOrder,
+      pendingOrder,
+    ]
   );
 
-  // ── Confirm order ──────────────────────────────────────────────────────────
-  const handleConfirmOrder = async (order, msgId) => {
+  // ─────────────────────────────────────────────────────────
+  // CONFIRM ORDER
+  // ─────────────────────────────────────────────────────────
+  async function handleConfirmOrder(
+    order,
+    msgId
+  ) {
+
     if (!order) return;
 
     setLoading(true);
@@ -451,147 +711,239 @@ export default function AIAssistant() {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
-          ? { ...m, confirmed: true }
+          ? {
+            ...m,
+            confirmed: true,
+          }
           : m
       )
     );
 
     try {
-      const balRes = await fetchBalance();
 
-      const bal = balRes.data.balance;
+      // WALLET
+      const balanceRes =
+        await fetchBalance();
 
-      setBalance(bal);
+      const currentBalance =
+        Number(
+          balanceRes.data.balance || 0
+        );
 
-      if (bal < order.total) {
-        const short = (order.total - bal).toFixed(0);
+      setBalance(currentBalance);
 
-        const msg = `You're ₹${short} short. Please add money to your wallet first.`;
+      // CHECK BALANCE
+      if (
+        currentBalance <
+        Number(order.total)
+      ) {
+
+        const short =
+          (
+            Number(order.total) -
+            currentBalance
+          ).toFixed(0);
+
+        const msg =
+          `Insufficient wallet balance. Add ₹${short} more.`;
 
         addMsg({
           role: "assistant",
           content: msg,
         });
 
-        speak(msg);
+        speak(
+          getShortSpeech(msg)
+        );
 
         setLoading(false);
+
         return;
       }
 
+      // IMPORTANT
+      // REAL OBJECT IDS
       const orderBody = {
-        stall_id: order.stall_id,
 
-        items: order.items.map((i) => ({
-          menu_item_id: i.id,
-          qty: i.qty,
-          customizations: [],
-        })),
+        stall_id:
+          String(order.stall_id),
 
-        special_instructions: null,
-        payment_method: "wallet",
-        payment_status: "paid",
+        items:
+          order.items.map((i) => ({
+
+            menu_item_id:
+              String(i.id),
+
+            qty:
+              Number(i.qty),
+
+            customizations:
+              [],
+          })),
+
+        special_instructions:
+          null,
       };
 
-      const orderRes = await placeOrderAPI(orderBody);
+      // PLACE ORDER
+      const orderRes =
+        await placeOrderAPI(
+          orderBody
+        );
 
-      const placed = orderRes.data;
+      const placed =
+        orderRes.data;
 
-      // Deduct wallet
-      await deductWallet({
-        amount: order.total,
+      // WALLET DEDUCT
+      const deductRes =
+        await deductWallet({
 
-        description: `Order #${placed.order_id
-          ?.slice(-5)
-          .toUpperCase()} from ${order.stall_name}`,
+          amount:
+            Number(order.total),
 
-        order_id: placed.order_id,
-      });
+          description:
+            `Food order from ${order.stall_name}`,
 
-      const newBal =
-        (await fetchBalance()).data.balance;
+          order_id:
+            placed.order_id,
+        });
 
-      setBalance(newBal);
+      // UPDATED BALANCE
+      const updatedBalance =
+        Number(
+          deductRes.data.balance || 0
+        );
 
-      const code = pickupCode(placed.order_id);
+      setBalance(updatedBalance);
+
+      // TRACK PAGE
+      const trackingUrl =
+
+        placed.tracking_url ||
+
+        `/track/${placed.order_id}`;
+
+      // SUCCESS
+      const code =
+        pickupCode(
+          placed.order_id
+        );
 
       const eta =
         placed.predicted_prep_min || 10;
 
       const successMsg =
-        `✅ Order placed! Pickup code: ${code}. ` +
-        `Ready in ~${eta} minutes. ` +
-        `Wallet balance: ₹${newBal.toFixed(0)}.`;
+
+        `✅ Order placed successfully! ` +
+
+        `Hotel received your order. ` +
+
+        `₹${Number(order.total).toFixed(0)} deducted from wallet. ` +
+
+        `Pickup code: ${code}. ` +
+
+        `Ready in ${eta} mins. ` +
+
+        `Wallet balance ₹${updatedBalance.toFixed(0)}.`;
 
       addMsg({
+
         role: "assistant",
+
         content: successMsg,
+
         success: successMsg,
       });
 
-      speak(successMsg);
+      // VOICE
+      speak(
+        getShortSpeech(
+          successMsg
+        )
+      );
 
-      setPendingOrder(null);
-
+      // OPEN TRACK PAGE
       setTimeout(() => {
-        if (
-          window.confirm(
-            `Order placed! Track order #${code}?`
-          )
-        ) {
-          navigate(`/track/${placed.order_id}`);
-          setOpen(false);
-        }
+
+        setOpen(false);
+
+        navigate(
+          trackingUrl
+        );
+
       }, 1500);
 
     } catch (e) {
+
+      console.error(
+        "Order Error:",
+        e
+      );
+
       const msg =
+
         e.response?.data?.detail ||
-        "Order failed. Please try again.";
+
+        "Order failed.";
 
       addMsg({
         role: "assistant",
         content: `⚠️ ${msg}`,
       });
 
-      speak(msg);
+      speak(
+        getShortSpeech(msg)
+      );
+
     } finally {
+
       setLoading(false);
+
     }
   };
 
-  // ── Cancel order ───────────────────────────────────────────────────────────
-  const handleCancelOrder = (msgId) => {
+  // ─────────────────────────────────────────────────────────
+  // CANCEL ORDER
+  // ─────────────────────────────────────────────────────────
+  function handleCancelOrder(
+    msgId
+  ) {
+
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId
-          ? { ...m, confirmed: true }
+          ? {
+            ...m,
+            confirmed: true,
+          }
           : m
       )
     );
 
-    setPendingOrder(null);
-
-    const msg =
-      "Order cancelled. Let me know if you'd like something else!";
-
     addMsg({
       role: "assistant",
-      content: msg,
+      content:
+        "Order cancelled.",
     });
-
-    speak(msg);
   };
 
-  // ── Enter key ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
+  // ENTER KEY
+  // ─────────────────────────────────────────────────────────
   const handleKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey
+    ) {
+
       e.preventDefault();
+
       handleSend();
     }
   };
 
-  // ── Hide on auth pages ─────────────────────────────────────────────────────
+  // HIDE LOGIN PAGE
   if (
     !token ||
     pathname === "/" ||
@@ -602,104 +954,114 @@ export default function AIAssistant() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* FLOAT BUTTON */}
       <button
-        onClick={() => setOpen((v) => !v)}
-        className={`fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full shadow-2xl
-                    flex items-center justify-center transition-all duration-300
-                    ${open
-            ? "bg-zinc-900 rotate-45 scale-95"
-            : "bg-gradient-to-br from-lime-500 to-lime-600 hover:scale-110"
+        onClick={() =>
+          setOpen((v) => !v)
+        }
+        className={`fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center ${open
+          ? "bg-zinc-900"
+          : "bg-lime-500"
           }`}
       >
-        {open ? (
-          <span className="text-white text-2xl">✕</span>
-        ) : (
-          <span className="text-2xl">🤖</span>
-        )}
+        {open ? "✕" : "🤖"}
       </button>
 
-      {/* Chat Panel */}
+      {/* CHAT PANEL */}
       {open && (
+
         <div
-          className="fixed bottom-40 right-4 z-50 w-[350px] md:w-[400px]
-                     bg-white rounded-3xl shadow-2xl border border-gray-100
-                     flex flex-col overflow-hidden"
-          style={{ maxHeight: "70vh" }}
+          className="fixed bottom-40 right-4 z-50 w-[380px] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+          style={{
+            maxHeight: "70vh",
+          }}
         >
-          {/* Header */}
+
+          {/* HEADER */}
           <div className="bg-zinc-900 px-4 py-3 flex items-center gap-3">
+
             <div className="w-9 h-9 bg-lime-500 rounded-2xl flex items-center justify-center">
               🤖
             </div>
 
             <div className="flex-1">
+
               <div className="flex items-center gap-2">
+
                 <p className="text-white font-bold text-sm">
                   EatsBot
                 </p>
 
-                <VoiceWave active={listening || speaking} />
+                <VoiceWave
+                  active={
+                    listening ||
+                    speaking
+                  }
+                />
+
               </div>
 
               <p className="text-zinc-400 text-xs">
+
                 {listening
                   ? "Listening..."
                   : speaking
                     ? "Speaking..."
-                    : "AI Food Assistant"}
+                    : "AI Assistant"}
+
               </p>
+
             </div>
+
           </div>
 
-          {/* Messages */}
+          {/* MESSAGES */}
           <div className="flex-1 overflow-y-auto px-4 py-4 bg-zinc-50">
-            {messages.map((msg) => (
-              <Bubble key={msg.id} msg={msg} />
-            ))}
 
-            {loading && (
-              <div className="flex justify-start mb-3">
-                <TypingDots />
-              </div>
-            )}
+            {messages.map((msg) => (
+
+              <Bubble
+                key={msg.id}
+                msg={msg}
+              />
+
+            ))}
 
             <div ref={bottomRef} />
+
           </div>
 
-          {/* Quick prompts */}
-          <div className="px-4 pt-2 flex gap-2 overflow-x-auto">
-            {QUICK_PROMPTS.map((p) => (
-              <button
-                key={p}
-                onClick={() => handleSend(p)}
-                className="text-xs bg-white border border-gray-200
-                           px-3 py-1.5 rounded-full whitespace-nowrap"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <div className="px-3 py-3 border-t border-gray-100 bg-white flex gap-2">
+          {/* INPUT */}
+          <div className="px-3 py-3 border-t bg-white flex gap-2">
 
             <input
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) =>
+                setInput(
+                  e.target.value
+                )
+              }
               onKeyDown={handleKey}
-              placeholder="Type or speak your order..."
-              className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+              placeholder="Type or speak..."
+              className="flex-1 bg-gray-50 border rounded-xl px-3 py-2 text-sm"
             />
 
-            {/* Mic */}
+            {/* MIC */}
             <button
-              onClick={
-                listening
-                  ? stopListening
-                  : startListening
-              }
+              onClick={() => {
+
+                if (listening) {
+
+                  stopListening();
+
+                } else {
+
+                  startListening();
+
+                }
+
+              }}
               className={`w-10 h-10 rounded-xl ${listening
                 ? "bg-red-500 text-white"
                 : "bg-gray-100"
@@ -708,16 +1070,22 @@ export default function AIAssistant() {
               🎤
             </button>
 
-            {/* Send */}
+            {/* SEND */}
             <button
-              onClick={() => handleSend()}
-              disabled={!input.trim() || loading}
+              onClick={() =>
+                handleSend()
+              }
+              disabled={
+                !input.trim() ||
+                loading
+              }
               className="w-10 h-10 bg-lime-500 rounded-xl"
             >
               ➤
             </button>
 
           </div>
+
         </div>
       )}
     </>

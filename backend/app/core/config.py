@@ -40,6 +40,16 @@ class Settings(BaseSettings):
 
     # Firebase Settings
     FIREBASE_PROJECT_ID: str | None = None
+
+    # Gmail SMTP Settings
+    MAIL_USERNAME: str = "easyeatsproject@gmail.com"
+    MAIL_PASSWORD: str = "CHANGE_ME"
+    MAIL_FROM: str = "easyeatsproject@gmail.com"
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+
     # App
     APP_NAME: str = "Easy Eats API"
     DEBUG: bool = False

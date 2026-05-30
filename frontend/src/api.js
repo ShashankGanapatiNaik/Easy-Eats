@@ -1,8 +1,10 @@
 import axios from "axios";
 
 // VITE_API_URL=http://localhost:8000 set in frontend/.env
+export const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: SOCKET_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -10,6 +12,24 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = "Bearer " + token;
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Clear invalid/expired token and user data to stop infinite 401 loops
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("user_data");
+      
+      // Redirect to login if not already on the login page
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ── Stalls ────────────────────────────────────────────────────────────────────
 export const getStalls          = (params = {}) => api.get("/stalls/", { params });
@@ -28,6 +48,9 @@ export const toggleItemAvailability= (itemId)         => api.put(`/menu/item/${i
 export const addMenuItem           = (stallId, data)  => api.post(`/menu/${stallId}`, data);
 export const updateMenuItem        = (itemId, data)   => api.put(`/menu/item/${itemId}`, data);
 export const deleteMenuItem        = (itemId)         => api.delete(`/menu/item/${itemId}`);
+export const getRecommendations    = (stallId, cartItemIds) => api.post(`/menu/${stallId}/recommendations`, { cart_item_ids: cartItemIds });
+export const trackRecommendationClick = (stallId, itemId)  => api.post(`/menu/recommendations/click`, { stall_id: stallId, item_id: itemId });
+
 
 // ── Orders ────────────────────────────────────────────────────────────────────
 export const placeOrder      = (data)         => api.post("/orders/place", data);
@@ -60,10 +83,10 @@ export const createRazorpayOrder = (amount) => api.post("/payments/create-order"
 export const verifyPayment       = (body)   => api.post("/payments/verify", body);
 
 // ── OTP, Profile & Notifications ──────────────────────────────────────────────
-export const sendOtp                  = (phone)        => api.post("/auth/otp/send", { phone });
+export const sendOtp                  = (phone, email) => api.post("/auth/otp/send", { phone, email });
 export const verifyOtp                = (phone, code)  => api.post("/auth/otp/verify", { phone, code });
 export const updateProfile            = (data)         => api.put("/auth/profile", data);
-export const getNotifications         = ()             => api.get("/notifications");
+export const getNotifications         = (params = {})  => api.get("/notifications", { params });
 export const markNotificationRead     = (id)           => api.put(`/notifications/${id}/read`);
 export const markAllNotificationsRead = ()             => api.put("/notifications/read-all");
 

@@ -1,10 +1,37 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getStalls, updateProfile, sendOtp, getOrderHistory, submitReview } from "../api";
+import { getStalls, updateProfile, sendOtp, getOrderHistory, submitReview, getNotifications, markAllNotificationsRead, SOCKET_URL } from "../api";
 import { useCart } from "../context/CartContext";
 import logo from "../assets/logo.svg";
 import WalletWidget from "../components/ai/WalletWidget";
 import OTPModal from "../components/OTPModal";
+import { io } from "socket.io-client";
+
+function CrowdBadge({ density }) {
+  if (!density) return null;
+  const { crowd_level, estimated_wait_min } = density;
+  
+  let colorClass = "";
+  let dotColor = "";
+  
+  if (crowd_level === "Low") {
+    colorClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+    dotColor = "bg-emerald-400";
+  } else if (crowd_level === "Medium") {
+    colorClass = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    dotColor = "bg-amber-400";
+  } else {
+    colorClass = "bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse";
+    dotColor = "bg-rose-400";
+  }
+
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-md shadow-sm ${colorClass}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${crowd_level === "High" ? "animate-ping" : ""}`} />
+      <span>{crowd_level} Crowd • {estimated_wait_min} min</span>
+    </div>
+  );
+}
 
 const CUISINE_FILTERS = ["All", "Snacks", "Burgers", "Coffee", "Meals", "Desserts", "Drinks"];
 
@@ -21,6 +48,9 @@ export default function Home() {
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [updateError, setUpdateError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
   // ── Order History State ─────────────────────────────────────────────────────
   const { reorderItems } = useCart();
@@ -43,8 +73,30 @@ export default function Home() {
 
   useEffect(() => { loadStalls(); }, [active]);
 
-  const loadStalls = async () => {
-    setLoading(true);
+  const fetchNotifications = async () => {
+    if (user.role !== "student") return;
+    try {
+      const res = await getNotifications({ unread_only: false });
+      const list = res.data || [];
+      setNotifs(list);
+      
+      const lastOpened = parseInt(localStorage.getItem("last_opened_notif") || "0");
+      const unread = list.filter(n => new Date(n.sent_at).getTime() > lastOpened).length;
+      setUnreadCount(unread);
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user.role !== "student") return;
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadStalls = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const params = {};
@@ -52,12 +104,42 @@ export default function Home() {
       const res = await getStalls(params);
       setStalls(res.data || []);
     } catch (e) {
-      setError(e.response?.data?.detail || e.message || "Cannot connect to server");
+      if (!silent) setError(e.response?.data?.detail || e.message || "Cannot connect to server");
       setStalls([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Socket.IO connection for real-time queue updates
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+
+    socket.on("queue_update", (data) => {
+      setStalls((prevStalls) =>
+        prevStalls.map((s) =>
+          s.id === data.stall_id
+            ? { ...s, queue_density: data.queue_density }
+            : s
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Background polling for safety/fallback
+    const interval = setInterval(() => {
+      loadStalls(true);
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [active]);
 
   const filtered = stalls.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase())
@@ -227,6 +309,91 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3">
             <WalletWidget compact />
+            
+            {/* Animated Notification Bell Dropdown */}
+            {user.role === "student" && (
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    setShowNotifDropdown(!showNotifDropdown);
+                    if (!showNotifDropdown) {
+                      setUnreadCount(0);
+                      localStorage.setItem("last_opened_notif", Date.now().toString());
+                    }
+                  }}
+                  className={`w-10 h-10 rounded-full bg-white border border-gray-200 text-zinc-700 hover:text-zinc-950 flex items-center justify-center shadow-sm hover:scale-105 transition-all relative ${unreadCount > 0 ? "animate-wiggle" : ""}`}
+                >
+                  <span className="text-xl">🔔</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifDropdown && (
+                  <div 
+                    className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md border border-gray-100 shadow-2xl rounded-3xl p-4 z-[100] animate-slide-up"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-50">
+                      <h3 className="font-bold text-zinc-900 text-sm">Notifications</h3>
+                      {notifs.length > 0 && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await markAllNotificationsRead();
+                              localStorage.setItem("last_opened_notif", Date.now().toString());
+                              setUnreadCount(0);
+                              fetchNotifications();
+                            } catch {}
+                          }}
+                          className="text-xs font-bold text-lime-600 hover:text-lime-700 hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
+                      {notifs.length === 0 ? (
+                        <p className="text-center text-xs text-gray-400 py-6">No notifications yet 🍔</p>
+                      ) : (
+                        notifs.map((n) => {
+                          const isReady = n.type === "order_ready";
+                          const isNew = new Date(n.sent_at).getTime() > parseInt(localStorage.getItem("last_opened_notif") || "0");
+                          return (
+                            <div 
+                              key={n.id} 
+                              onClick={() => {
+                                setShowNotifDropdown(false);
+                                navigate(`/track/${n.order_id}`);
+                              }}
+                              className={`p-3 rounded-2xl text-left transition-all cursor-pointer flex gap-2.5 items-start border ${isNew ? "bg-lime-50/50 border-lime-200" : "bg-white border-transparent hover:bg-gray-50/50"}`}
+                            >
+                              <span className="text-xl flex-shrink-0">{isReady ? "🎉" : "🍔"}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-xs text-zinc-900 leading-tight">
+                                  {isReady ? "Your Order is Ready!" : "Order Confirmed"}
+                                </p>
+                                <p className="text-[11px] text-gray-500 mt-1 leading-normal truncate">
+                                  {n.message.split("\n\n").slice(1).join(" ") || n.message}
+                                </p>
+                                <span className="text-[9px] text-gray-400 mt-1 block">
+                                  {new Date(n.sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              </div>
+                              {isNew && <span className="w-1.5 h-1.5 rounded-full bg-lime-500 flex-shrink-0 mt-1.5" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button onClick={() => setShowProfile(true)}
               className="w-10 h-10 rounded-full bg-zinc-900 text-white font-bold
                          flex items-center justify-center shadow-md hover:scale-105 transition-transform">
@@ -345,6 +512,11 @@ export default function Home() {
               {stall.is_open && (
                 <span className="absolute top-3 left-3 bg-lime-500 text-zinc-900 text-xs font-bold px-2.5 py-1 rounded-full">Open</span>
               )}
+              {stall.is_open && stall.queue_density && (
+                <div className="absolute top-3 right-3 z-10">
+                  <CrowdBadge density={stall.queue_density} />
+                </div>
+              )}
             </div>
             <div className="p-5">
               <div className="flex justify-between items-start">
@@ -352,6 +524,25 @@ export default function Home() {
                   <h3 className="text-xl font-bold text-zinc-900 group-hover:text-lime-600 transition-colors">{stall.name}</h3>
                   <p className="text-sm text-gray-500 mt-0.5">{stall.cuisine_type}</p>
                   {stall.location_label && <p className="text-xs text-gray-400 mt-0.5">{stall.location_label}</p>}
+                  
+                  {/* Live Crowd Intelligence Row */}
+                  {stall.is_open && stall.queue_density && (
+                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
+                      {stall.queue_density.fast_pickup && (
+                        <span className="bg-emerald-500/10 text-emerald-600 font-extrabold px-2 py-0.5 rounded border border-emerald-500/25">
+                          ⚡ Fast Pickup
+                        </span>
+                      )}
+                      {stall.queue_density.is_rush_hour && (
+                        <span className="bg-rose-500/10 text-rose-600 font-extrabold px-2 py-0.5 rounded border border-rose-500/25 animate-pulse">
+                          🔥 Rush Hour
+                        </span>
+                      )}
+                      <span className="bg-zinc-100 text-zinc-500 font-bold px-2 py-0.5 rounded">
+                        🕒 Best Time: {stall.queue_density.best_time_to_order}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {stall.avg_rating > 0 && (
                   <div className="bg-lime-50 text-lime-700 border border-lime-100 px-2.5 py-1.5 rounded-xl text-sm font-bold">
@@ -672,9 +863,21 @@ export default function Home() {
       <OTPModal
         isOpen={isOtpModalOpen}
         phone={editForm.phone}
+        email={editForm.email || profile.email}
         onVerify={handleProfileOtpVerified}
         onClose={() => setIsOtpModalOpen(false)}
       />
+      <style>{`
+        @keyframes wiggle {
+          0%, 100% { transform: rotate(0deg); }
+          10%, 90% { transform: rotate(0deg); }
+          20%, 60% { transform: rotate(-8deg); }
+          40%, 80% { transform: rotate(8deg); }
+        }
+        .animate-wiggle {
+          animation: wiggle 2s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

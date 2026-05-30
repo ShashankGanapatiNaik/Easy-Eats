@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useCart } from "../context/CartContext";
 import { placeOrder } from "../api";
-import api from "../api";
+import api, { getRecommendations, trackRecommendationClick } from "../api";
 
 // Load Razorpay script dynamically
 function loadRazorpay() {
@@ -16,12 +16,133 @@ function loadRazorpay() {
   });
 }
 
+/* ─── Recommendation Card ──────────────────────────────────────────────────── */
+function RecommendationCard({ item, stallId, onAdd }) {
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    setAdding(true);
+    // Track click event (fire-and-forget)
+    try { await trackRecommendationClick(stallId, item.id); } catch {}
+    onAdd(item);
+    setTimeout(() => setAdding(false), 600);
+  };
+
+  const price = item.discounted_price || item.price;
+
+  return (
+    <div
+      className="flex-shrink-0 w-40 rounded-2xl overflow-hidden flex flex-col"
+      style={{
+        background: "linear-gradient(135deg, rgba(255,255,255,0.97) 0%, rgba(250,250,255,0.97) 100%)",
+        border: "1px solid rgba(132,204,22,0.15)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.07)",
+      }}
+    >
+      {/* Image */}
+      <div className="relative w-full h-24 bg-gradient-to-br from-lime-50 to-emerald-50 overflow-hidden">
+        {item.image_url ? (
+          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-3xl">🍽️</div>
+        )}
+        {item.is_popular && (
+          <span className="absolute top-1.5 left-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full"
+            style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", letterSpacing: "0.03em" }}>
+            ⭐ POPULAR
+          </span>
+        )}
+        {item.discounted_price && (
+          <span className="absolute top-1.5 right-1.5 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+            SALE
+          </span>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="p-2.5 flex flex-col gap-1.5 flex-1">
+        <p className="text-xs font-bold text-zinc-900 leading-tight line-clamp-2">{item.name}</p>
+        <div className="flex items-center gap-1">
+          {item.is_veg ? (
+            <span className="w-3 h-3 rounded-sm border border-green-600 flex items-center justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+            </span>
+          ) : (
+            <span className="w-3 h-3 rounded-sm border border-red-500 flex items-center justify-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            </span>
+          )}
+          <span className="text-[10px] text-gray-400 font-medium">{item.prep_time_min}m</span>
+        </div>
+        <div className="flex items-center justify-between mt-auto">
+          <div>
+            <span className="text-sm font-black text-lime-600">₹{price}</span>
+            {item.discounted_price && (
+              <span className="text-[10px] text-gray-400 line-through ml-1">₹{item.price}</span>
+            )}
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={adding}
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-sm transition-all active:scale-90"
+            style={{
+              background: adding
+                ? "linear-gradient(135deg,#22c55e,#16a34a)"
+                : "linear-gradient(135deg,#84cc16,#65a30d)",
+              boxShadow: "0 2px 8px rgba(132,204,22,0.35)",
+            }}
+          >
+            {adding ? "✓" : "+"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Cart() {
   const navigate = useNavigate();
-  const { cart, increaseQty, decreaseQty, clearCart, cartTotal, stallId } = useCart();
+  const { cart, increaseQty, decreaseQty, clearCart, cartTotal, stallId, addItem } = useCart();
   const [instructions, setInstructions] = useState("");
   const [paying,  setPaying]  = useState(false);
   const [error,   setError]   = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+
+  /* ── Fetch recommendations whenever cart changes ─────────────────────── */
+  const fetchRecs = useCallback(async () => {
+    if (!stallId || cart.length === 0) { setRecommendations([]); return; }
+    setRecsLoading(true);
+    try {
+      const cartIds = cart.map((i) => i.id);
+      const { data } = await getRecommendations(stallId, cartIds);
+      setRecommendations(data || []);
+    } catch {
+      setRecommendations([]);
+    } finally {
+      setRecsLoading(false);
+    }
+  }, [cart, stallId]);
+
+  useEffect(() => {
+    fetchRecs();
+  }, [fetchRecs]);
+
+  /* ── Add recommended item to cart ───────────────────────────────────── */
+  const handleAddRecommended = (item) => {
+    addItem({
+      id:           item.id,
+      name:         item.name,
+      price:        item.price,
+      discounted_price: item.discounted_price,
+      image_url:    item.image_url,
+      stall_id:     stallId,
+      qty:          1,
+      is_recommended: true,
+      selectedCustomizations: [],
+    });
+  };
+
 
   // ── Pay with Razorpay → then place order ──────────────────────────────────
   const handlePayAndOrder = async () => {
@@ -81,13 +202,14 @@ function Cart() {
         rzpInstance.open();
       });
 
-      // 5️⃣ Payment verified → place the order
+      // 5️⃣ Payment verified → place the order (include is_recommended flags)
       const orderBody = {
         stall_id: stallId,
         items: cart.map((item) => ({
           menu_item_id:   item.id,
           qty:            item.qty,
           customizations: item.selectedCustomizations || [],
+          is_recommended: item.is_recommended || false,
         })),
         special_instructions: instructions || null,
         payment_method: "razorpay",
@@ -170,9 +292,17 @@ function Cart() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-zinc-900 text-sm truncate">{item.name}</p>
-                <p className="text-sm font-bold text-lime-600 mt-0.5">
-                  ₹{(item.discounted_price || item.price) * item.qty}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-sm font-bold text-lime-600">
+                    ₹{(item.discounted_price || item.price) * item.qty}
+                  </p>
+                  {item.is_recommended && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+                      style={{ background: "rgba(132,204,22,0.12)", color: "#65a30d", border: "1px solid rgba(132,204,22,0.25)" }}>
+                      ✨ Recommended
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-2 rounded-full flex-shrink-0">
                 <button onClick={() => decreaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base active:scale-90">−</button>
@@ -182,6 +312,53 @@ function Cart() {
             </div>
           ))}
         </div>
+
+        {/* ── You May Also Like ───────────────────────────────────────────── */}
+        {(recsLoading || recommendations.length > 0) && (
+          <div className="rounded-3xl overflow-hidden" style={{
+            background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
+            border: "1px solid rgba(99,102,241,0.2)",
+            boxShadow: "0 8px 32px rgba(99,102,241,0.1)",
+          }}>
+            {/* Header */}
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">✨</span>
+                <div>
+                  <h3 className="text-white font-black text-sm">You May Also Like</h3>
+                  <p className="text-indigo-400/70 text-[10px] font-medium">AI-powered suggestions just for you</p>
+                </div>
+              </div>
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full"
+                style={{ background: "rgba(99,102,241,0.2)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)" }}>
+                🧠 Smart Pick
+              </span>
+            </div>
+
+            {/* Horizontal scroll */}
+            <div className="px-4 pb-4">
+              {recsLoading ? (
+                <div className="flex gap-3 pb-1">
+                  {[1,2,3].map((k) => (
+                    <div key={k} className="flex-shrink-0 w-40 h-44 rounded-2xl animate-pulse"
+                      style={{ background: "rgba(255,255,255,0.06)" }} />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                  {recommendations.map((item) => (
+                    <RecommendationCard
+                      key={item.id}
+                      item={item}
+                      stallId={stallId}
+                      onAdd={handleAddRecommended}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Special instructions */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
@@ -244,7 +421,7 @@ function Cart() {
               </>
             ) : (
               <>
-                💳 Pay ₹{cartTotal.toFixed(0)} & Place Order
+                💳 Pay ₹{cartTotal.toFixed(0)} &amp; Place Order
               </>
             )}
           </button>

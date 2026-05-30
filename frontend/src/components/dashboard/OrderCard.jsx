@@ -300,6 +300,34 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             )}
           </div>
 
+          {/* ── AI Assistant Analytics (Dashboard) ── */}
+          {localOrder.ai_prediction && ACTIVE.includes(localOrder.status) && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 mb-3 flex justify-between items-center text-[11px] text-zinc-600">
+              <div>
+                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">🧠 AI ETA Window</p>
+                <p className="font-extrabold text-indigo-950 mt-0.5">
+                  {localOrder.ai_prediction.confidence_range}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">Delay Risk</p>
+                <span className={`inline-block font-black mt-0.5
+                  ${localOrder.ai_prediction.delay_risk === "High" ? "text-red-600 animate-pulse" : ""}
+                  ${localOrder.ai_prediction.delay_risk === "Medium" ? "text-amber-600" : ""}
+                  ${localOrder.ai_prediction.delay_risk === "Low" ? "text-emerald-600" : ""}
+                `}>
+                  {localOrder.ai_prediction.delay_risk} Risk
+                </span>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">Stall Avg Speed</p>
+                <p className="font-bold text-indigo-950 mt-0.5">
+                  {localOrder.ai_prediction.avg_completion_speed}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* ── Action buttons ── */}
           <div className="flex gap-2">
             {nextStatus && !isCollected && (

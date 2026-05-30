@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getStall, toggleStall, stallOrders } from "../api";
+import { io } from "socket.io-client";
+import { getStall, toggleStall, stallOrders, SOCKET_URL } from "../api";
 import OrderCard      from "../components/dashboard/OrderCard";
 import MenuManager    from "../components/dashboard/MenuManager";
 import KitchenInsights from "../components/dashboard/KitchenInsights";
@@ -39,8 +40,25 @@ export default function KitchenDashboard() {
     }
     setLoading(true);
     loadAll();
-    pollRef.current = setInterval(() => fetchOrders(true), 10000);
+    pollRef.current = setInterval(() => fetchOrders(true), 5000);
     return () => clearInterval(pollRef.current);
+  }, [stallId]);
+
+  // ── Socket.IO — stall room for instant cross-device updates ────────────
+  useEffect(() => {
+    if (!stallId) return;
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+    socket.on("connect", () => {
+      socket.emit("join_stall", { stall_id: stallId });
+    });
+    socket.on("order_status_updated", () => {
+      // Re-fetch orders silently when any order in this stall changes
+      fetchOrders(true);
+    });
+    return () => socket.disconnect();
   }, [stallId]);
 
   const loadAll = async () => {

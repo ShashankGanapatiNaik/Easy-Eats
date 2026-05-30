@@ -1,10 +1,7 @@
-"""
-Order Routes — with SMS notifications
-POST /orders/place           → place order + SMS confirmation
-GET  /orders/history         → full order history with stall info + review status
-PUT  /orders/{id}/status     → update status + SMS when Ready
-"""
-from fastapi import APIRouter, HTTPException, Depends, Query
+# app/routes/orders.py
+# UPDATED ORDER ROUTES WITH TRACKING SUPPORT + REAL-TIME SOCKET.IO
+
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from bson import ObjectId
@@ -15,344 +12,753 @@ from app.models.order import Order, OrderStatus
 from app.models.stall import Stall
 from app.models.menu_item import MenuItem
 from app.models.user import User
-from app.models.review import Review
-from app.utils.security import get_current_user, require_role
+from app.utils.security import get_current_user
 from app.services.ai_predictor import predict_prep_time
-from app.services.notification_service import notify_order_placed, notify_order_ready
+from app.services.notification_service import (
+    notify_order_placed,
+    notify_order_ready,
+)
+from app.socket_manager import sio
 
-router = APIRouter(prefix="/orders", tags=["Orders"])
+# ── Status-aware ETA (minutes added from NOW when status changes) ────────────
+ETA_BY_STATUS = {
+    OrderStatus.accepted:    12,
+    OrderStatus.preparing:    6,
+    OrderStatus.almost_ready: 2,
+    OrderStatus.ready:         0,
+}
 
+router = APIRouter(
+    prefix="/orders",
+    tags=["Orders"]
+)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# REQUEST MODELS
+# ─────────────────────────────────────────────────────────────────────────────
 class CartItemBody(BaseModel):
+
     menu_item_id: str
+
     qty: int
+
     customizations: List[dict] = []
+
+    is_recommended: bool = False
 
 
 class PlaceOrderBody(BaseModel):
+
     stall_id: str
+
     items: List[CartItemBody]
+
     special_instructions: Optional[str] = None
 
 
-# ─── Place Order ─────────────────────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────────────────────
+# PLACE ORDER
+# ─────────────────────────────────────────────────────────────────────────────
 @router.post("/place", status_code=201)
 async def place_order(
+
     body: PlaceOrderBody,
-    current_user: User = Depends(get_current_user),
+
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
-    stall = await Stall.get(ObjectId(body.stall_id))
-    if not stall:
-        raise HTTPException(status_code=404, detail="Stall not found")
-    if not stall.is_open:
-        raise HTTPException(status_code=400, detail="Stall is currently closed")
 
-    order_items = []
-    subtotal = 0.0
-
-    for cart_item in body.items:
-        menu_item = await MenuItem.get(ObjectId(cart_item.menu_item_id))
-        if not menu_item or menu_item.is_deleted:
-            raise HTTPException(status_code=404, detail=f"Item {cart_item.menu_item_id} not found")
-        if not menu_item.is_available:
-            raise HTTPException(status_code=400, detail=f"'{menu_item.name}' is currently unavailable")
-
-        custom_delta  = sum(cg.get("price_delta", 0) for cg in cart_item.customizations)
-        unit_price    = (menu_item.discounted_price or menu_item.price) + custom_delta
-        item_subtotal = unit_price * cart_item.qty
-
-        order_items.append({
-            "menu_item_id": str(menu_item.id),
-            "name":         menu_item.name,
-            "category":     menu_item.category,
-            "price":        unit_price,
-            "qty":          cart_item.qty,
-            "customizations": cart_item.customizations,
-            "subtotal":     item_subtotal,
-            "image_url":    menu_item.image_url,
-        })
-        subtotal += item_subtotal
-
-    active_orders = await Order.find(
-        Order.stall_id == stall.id,
-        NotIn(Order.status, [OrderStatus.ready, OrderStatus.collected, OrderStatus.cancelled]),
-    ).count()
-
-    prep_min   = min(predict_prep_time(subtotal, active_orders), 15)
-    now        = datetime.now()
-    ready_time = now + timedelta(minutes=prep_min)
-    slot_start = now + timedelta(minutes=(active_orders // 10) * 5)
-    slot_end   = slot_start + timedelta(minutes=5)
-
-    order = Order(
-        user_id=current_user.id,
-        stall_id=stall.id,
-        phone=current_user.phone,
-        items=order_items,
-        subtotal=subtotal,
-        discount=0.0,
-        total=subtotal,
-        status=OrderStatus.placed,
-        predicted_prep_min=prep_min,
-        estimated_ready_time=ready_time.strftime("%H:%M"),
-        pickup_slot=f"{slot_start.strftime('%H:%M')} – {slot_end.strftime('%H:%M')}",
-        active_orders_at_placement=active_orders,
-        special_instructions=body.special_instructions,
+    # stall check
+    stall = await Stall.get(
+        ObjectId(body.stall_id)
     )
-    await order.insert()
-    await stall.update({"$inc": {"total_orders": 1}})
 
-    # ── SMS: Order placed ─────────────────────────────────────────────────────
-    sms_sent = False
-    if current_user.phone:
-        sms_sent = await notify_order_placed(
-            user_id     = current_user.id,
-            phone       = current_user.phone,
-            order_id    = str(order.id),
-            stall_name  = stall.name,
-            prep_min    = prep_min,
+    if not stall:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Stall not found"
         )
 
+    if not stall.is_open:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Stall closed"
+        )
+
+    order_items = []
+
+    subtotal = 0.0
+
+    # ─────────────────────────────────────────────────────────
+    # BUILD ITEMS
+    # ─────────────────────────────────────────────────────────
+    for cart_item in body.items:
+
+        menu_item = await MenuItem.get(
+            ObjectId(
+                cart_item.menu_item_id
+            )
+        )
+
+        if (
+            not menu_item or
+            menu_item.is_deleted
+        ):
+
+            raise HTTPException(
+                status_code=404,
+                detail="Item not found"
+            )
+
+        if not menu_item.is_available:
+
+            raise HTTPException(
+                status_code=400,
+                detail=f"{menu_item.name} unavailable"
+            )
+
+        custom_delta = sum(
+            cg.get(
+                "price_delta",
+                0
+            )
+            for cg in cart_item.customizations
+        )
+
+        unit_price = (
+            menu_item.discounted_price
+            or menu_item.price
+        ) + custom_delta
+
+        item_subtotal = (
+            unit_price *
+            cart_item.qty
+        )
+
+        order_items.append({
+
+            "menu_item_id":
+                str(menu_item.id),
+
+            "name":
+                menu_item.name,
+
+            "category":
+                menu_item.category,
+
+            "price":
+                unit_price,
+
+            "qty":
+                cart_item.qty,
+
+            "customizations":
+                cart_item.customizations,
+
+            "subtotal":
+                item_subtotal,
+
+            "image_url":
+                menu_item.image_url,
+        })
+
+        subtotal += item_subtotal
+
+    # ─────────────────────────────────────────────────────────
+    # ACTIVE ORDERS
+    # ─────────────────────────────────────────────────────────
+    active_orders = await Order.find(
+
+        Order.stall_id == stall.id,
+
+        NotIn(
+            Order.status,
+            [
+                OrderStatus.ready,
+                OrderStatus.collected,
+                OrderStatus.cancelled,
+            ]
+        ),
+
+    ).count()
+
+    # ─────────────────────────────────────────────────────────
+    # ETA
+    # ─────────────────────────────────────────────────────────
+    prep_min = min(
+        predict_prep_time(
+            subtotal,
+            active_orders
+        ),
+        15
+    )
+
+    now = datetime.now()
+
+    ready_time = (
+        now +
+        timedelta(
+            minutes=prep_min
+        )
+    )
+
+    slot_start = (
+        now +
+        timedelta(
+            minutes=(active_orders // 10) * 5
+        )
+    )
+
+    slot_end = (
+        slot_start +
+        timedelta(minutes=5)
+    )
+
+    # ─────────────────────────────────────────────────────────
+    # CREATE ORDER
+    # ─────────────────────────────────────────────────────────
+    order = Order(
+
+        user_id=current_user.id,
+
+        stall_id=stall.id,
+
+        phone=current_user.phone,
+
+        items=order_items,
+
+        subtotal=subtotal,
+
+        discount=0.0,
+
+        total=subtotal,
+
+        status=OrderStatus.placed,
+
+        predicted_prep_min=prep_min,
+
+        estimated_ready_time=
+            ready_time.strftime("%H:%M"),
+
+        estimated_ready_iso=
+            ready_time.isoformat(),
+
+        pickup_slot=
+            f"{slot_start.strftime('%H:%M')} – "
+            f"{slot_end.strftime('%H:%M')}",
+
+        active_orders_at_placement=
+            active_orders,
+
+        special_instructions=
+            body.special_instructions,
+    )
+
+    await order.insert()
+
+    await stall.update({
+        "$inc": {
+            "total_orders": 1
+        }
+    })
+
+    # ── Record purchase analytics for recommended items ───────────────────
+    from app.models.recommendation_analytics import RecommendationAnalytics
+    for cart_item in body.items:
+        if cart_item.is_recommended:
+            try:
+                analytics = RecommendationAnalytics(
+                    user_id=current_user.id,
+                    stall_id=stall.id,
+                    item_id=ObjectId(cart_item.menu_item_id),
+                    action="purchase",
+                    order_id=order.id,
+                )
+                await analytics.insert()
+            except Exception:
+                pass  # Never block order placement for analytics
+
+    from app.services.queue_service import broadcast_queue_density
+    await broadcast_queue_density(stall.id)
+
+    # ─────────────────────────────────────────────────────────
+    # SMS NOTIFICATION
+    # ─────────────────────────────────────────────────────────
+    sms_sent = False
+
+    if current_user.phone:
+
+        sms_sent = await notify_order_placed(
+
+            user_id=current_user.id,
+
+            phone=current_user.phone,
+
+            order_id=str(order.id),
+
+            stall_name=stall.name,
+
+            prep_min=prep_min,
+        )
+
+    # ─────────────────────────────────────────────────────────
+    # RESPONSE
+    # ─────────────────────────────────────────────────────────
     return {
-        "message":              "Order placed",
-        "order_id":             str(order.id),
-        "predicted_prep_min":   prep_min,
-        "estimated_ready_time": order.estimated_ready_time,
-        "pickup_slot":          order.pickup_slot,
-        "total":                order.total,
-        "sms_sent":             sms_sent,
+
+        "success": True,
+
+        "message":
+            "Order placed successfully",
+
+        "order_id":
+            str(order.id),
+
+        # IMPORTANT
+        "tracking_url":
+            f"/track/{order.id}",
+
+        "predicted_prep_min":
+            prep_min,
+
+        "estimated_ready_time":
+            order.estimated_ready_time,
+
+        "pickup_slot":
+            order.pickup_slot,
+
+        "total":
+            order.total,
+
+        "sms_sent":
+            sms_sent,
     }
 
 
-# ─── Student: own orders ─────────────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────────────────────
+# STUDENT ORDER HISTORY
+# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/my")
-async def my_orders(
-    skip: int = 0,
-    limit: int = 20,
-    current_user: User = Depends(get_current_user),
-):
-    orders = await Order.find(
-        Order.user_id == current_user.id,
-    ).sort(-Order.placed_at).skip(skip).limit(limit).to_list()
-    return [_order_dict(o) for o in orders]
+async def get_my_orders(current_user: User = Depends(get_current_user)):
+    orders = await Order.find(Order.user_id == current_user.id).sort(-Order.placed_at).to_list()
+    res = []
+    for o in orders:
+        stall = await Stall.get(o.stall_id)
+        res.append({
+            "id": str(o.id),
+            "stall_id": str(o.stall_id),
+            "stall_name": stall.name if stall else "Unknown Stall",
+            "placed_at": o.placed_at.isoformat(),
+            "status": o.status,
+            "items": o.items,
+            "total": o.total,
+            "review_submitted": getattr(o, "review_submitted", False)
+        })
+    return res
 
-
-# ─── Student: full order history with stall info + review status ─────────────
 
 @router.get("/history")
-async def order_history(
-    skip: int = 0,
-    limit: int = 50,
-    status: Optional[str] = None,
-    search: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Rich order history endpoint.
-    Joins stall name/logo and checks if user already reviewed each order.
-    Supports optional ?status=Collected and ?search=burger filtering.
-    """
-    orders = await Order.find(
-        Order.user_id == current_user.id,
-    ).sort(-Order.placed_at).skip(skip).limit(limit).to_list()
-
-    # Pre-fetch all unique stalls in one batch
-    stall_ids = list({o.stall_id for o in orders})
-    stalls = await Stall.find({"_id": {"$in": stall_ids}}).to_list()
-    stall_map = {s.id: s for s in stalls}
-
-    # Pre-fetch existing reviews by this user for these orders
-    order_ids = [o.id for o in orders]
-    reviews = await Review.find(
-        Review.user_id == current_user.id,
-        {"order_id": {"$in": order_ids}},
-    ).to_list()
-    reviewed_order_ids = {r.order_id for r in reviews if r.order_id}
-
-    results = []
-    for o in orders:
-        stall = stall_map.get(o.stall_id)
-        stall_name = stall.name if stall else "Unknown Stall"
-        stall_logo = stall.logo_url if stall else None
-
-        # Apply server-side status filter
-        if status and o.status.value != status:
-            continue
-
-        # Apply server-side search filter (match stall name or item names)
-        if search:
-            q = search.lower()
-            name_match = q in stall_name.lower()
-            item_match = any(q in (it.get("name", "")).lower() for it in o.items)
-            if not name_match and not item_match:
-                continue
-
-        base = _order_dict(o)
-        base["restaurant_name"] = stall_name
-        base["restaurant_logo_url"] = stall_logo
-        base["pickup_code"] = str(o.id)[-4:].upper()
-        base["is_reviewed"] = o.id in reviewed_order_ids
-        results.append(base)
-
-    return results
+async def get_order_history(current_user: User = Depends(get_current_user)):
+    return await get_my_orders(current_user)
 
 
-# ─── Kitchen/Owner: stall orders ─────────────────────────────────────────────
-
+# ─────────────────────────────────────────────────────────────────────────────
+# KITCHEN DASHBOARD ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
 @router.get("/stall/{stall_id}")
-async def stall_orders(
-    stall_id: str,
-    status: Optional[OrderStatus] = None,
-    skip: int = 0,
-    limit: int = 50,
-    current_user=Depends(require_role("stall_owner", "admin")),
-):
-    query = [Order.stall_id == ObjectId(stall_id)]
-    if status:
-        query.append(Order.status == status)
-    orders = await Order.find(*query).sort(-Order.placed_at).skip(skip).limit(limit).to_list()
-    return [_order_dict(o) for o in orders]
+async def get_stall_orders(stall_id: str, current_user: User = Depends(get_current_user)):
+    stall = await Stall.get(ObjectId(stall_id))
+    if not stall:
+        raise HTTPException(status_code=404, detail="Stall not found")
+    if stall.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view this stall's orders")
+    
+    orders = await Order.find(Order.stall_id == ObjectId(stall_id)).sort(-Order.placed_at).to_list()
+    res = []
+    for o in orders:
+        user = await User.get(o.user_id)
+        prediction = await predict_dynamic_remaining_time(o)
+        res.append({
+            "id": str(o.id),
+            "user_id": str(o.user_id),
+            "customer_name": user.name if user else "Customer",
+            "phone": o.phone,
+            "items": o.items,
+            "subtotal": o.subtotal,
+            "total": o.total,
+            "status": o.status,
+            "placed_at": o.placed_at.isoformat(),
+            "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+            "predicted_prep_min": o.predicted_prep_min,
+            "estimated_ready_time": prediction["eta_ready_time"],
+            "pickup_slot": o.pickup_slot,
+            "special_instructions": o.special_instructions,
+            "ai_prediction": {
+                "remaining_min": prediction["remaining_min"],
+                "confidence_range": prediction["confidence_range"],
+                "status_label": prediction["status_label"],
+                "status_color": prediction["status_color"],
+                "delay_risk": prediction["delay_risk"],
+                "avg_completion_speed": prediction["avg_completion_speed"]
+            }
+        })
+    return res
 
 
-# ─── Track order ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# TRACK ORDER
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/{id}/track")
+async def get_order_tracking(id: str, current_user: User = Depends(get_current_user)):
+    order = await Order.get(ObjectId(id))
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    prediction = await predict_dynamic_remaining_time(order)
+    
+    return {
+        "id": str(order.id),
+        "status": order.status,
+        "remaining_min": prediction["remaining_min"],
+        "estimated_ready_time": prediction["eta_ready_time"],
+        "pickup_slot": order.pickup_slot,
+        "total": order.total,
+        "items": order.items,
+        "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "predicted_prep_min": order.predicted_prep_min,
+        "ai_prediction": {
+            "confidence_range": prediction["confidence_range"],
+            "status_label": prediction["status_label"],
+            "status_color": prediction["status_color"],
+            "delay_risk": prediction["delay_risk"],
+            "avg_completion_speed": prediction["avg_completion_speed"],
+            "queue_time_min": prediction["queue_time_min"],
+            "walking_time_min": prediction["walking_time_min"],
+            "leave_recommendation": prediction["leave_recommendation"],
+            "leave_label": prediction["leave_label"],
+        }
+    }
 
-@router.get("/{order_id}/track")
-async def track_order(order_id: str):
-    order = await Order.get(ObjectId(order_id))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ADVANCE STATUS  (with real-time Socket.IO notification)
+# ─────────────────────────────────────────────────────────────────────────────
+@router.put("/{id}/status")
+async def update_order_status(id: str, status: OrderStatus, current_user: User = Depends(get_current_user)):
+    order = await Order.get(ObjectId(id))
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    now      = datetime.now()
-    ready_dt = datetime.strptime(order.estimated_ready_time, "%H:%M").replace(
-        year=now.year, month=now.month, day=now.day
-    )
-    remaining = max(0, int((ready_dt - now).total_seconds() / 60))
+    stall = await Stall.get(order.stall_id)
+    if not stall:
+        raise HTTPException(status_code=404, detail="Stall not found")
 
-    if remaining > 8:   auto_status = OrderStatus.placed
-    elif remaining > 6: auto_status = OrderStatus.accepted
-    elif remaining > 4: auto_status = OrderStatus.preparing
-    elif remaining > 2: auto_status = OrderStatus.almost_ready
-    else:               auto_status = OrderStatus.ready
+    # Authorize stall owner/kitchen or admin
+    if stall.owner_id != current_user.id and current_user.role not in ("admin", "stall_owner"):
+        raise HTTPException(status_code=403, detail="Not authorized to update this order's status")
 
-    if order.status != auto_status and order.status not in (
-        OrderStatus.collected, OrderStatus.cancelled
-    ):
-        await order.update({"$set": {"status": auto_status, "updated_at": datetime.utcnow()}})
-        order.status = auto_status
+    order.status = status
+    order.updated_at = datetime.utcnow()
 
-    return {**_order_dict(order), "remaining_min": remaining}
+    # ── Status-aware ETA recalculation ───────────────────────────────────────
+    remaining_min = 0
+    if status in ETA_BY_STATUS:
+        mins = ETA_BY_STATUS[status]
+        if mins > 0:
+            ready_time = datetime.now() + timedelta(minutes=mins)
+            order.estimated_ready_time = ready_time.strftime("%H:%M")
+            order.estimated_ready_iso  = ready_time.isoformat()
+            remaining_min = mins
+        else:
+            # Ready or terminal — clear countdown
+            remaining_min = 0
 
+    await order.save()
 
-# ─── Update status ────────────────────────────────────────────────────────────
+    from app.services.queue_service import broadcast_queue_density
+    await broadcast_queue_density(stall.id)
 
-@router.put("/{order_id}/status")
-async def update_status(
-    order_id: str,
-    status: OrderStatus,
-    current_user=Depends(require_role("stall_owner", "admin")),
-):
-    order = await Order.get(ObjectId(order_id))
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    update_data = {"status": status, "updated_at": datetime.utcnow()}
-    if status == OrderStatus.collected:
-        update_data["collected_at"] = datetime.utcnow()
-    await order.update({"$set": update_data})
-
-    # ── SMS: Food ready ───────────────────────────────────────────────────────
+    # ── SMS notification when Ready ──────────────────────────────────────────
     if status == OrderStatus.ready:
-        student = await User.get(order.user_id)
-        stall   = await Stall.get(order.stall_id)
-        if student and student.phone and stall:
-            await notify_order_ready(
-                user_id    = student.id,
-                phone      = student.phone,
-                order_id   = str(order.id),
-                stall_name = stall.name,
-            )
+        await notify_order_ready(
+            user_id=order.user_id,
+            phone=order.phone,
+            order_id=str(order.id),
+            stall_name=stall.name
+        )
 
-    return {"message": "Status updated", "order_id": order_id, "status": status}
+    prediction = await predict_dynamic_remaining_time(order)
 
+    # ── Socket.IO — broadcast to student tracking page ───────────────────────
+    socket_payload = {
+        "order_id":             str(order.id),
+        "status":               order.status,
+        "estimated_ready_time": prediction["eta_ready_time"],
+        "estimated_ready_iso":  (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "remaining_min":        prediction["remaining_min"],
+        "stall_name":           stall.name,
+        "ai_prediction": {
+            "confidence_range": prediction["confidence_range"],
+            "status_label": prediction["status_label"],
+            "status_color": prediction["status_color"],
+            "delay_risk": prediction["delay_risk"],
+            "avg_completion_speed": prediction["avg_completion_speed"]
+        }
+    }
+    # Notify the specific order room (student tracking page)
+    await sio.emit("order_status_updated", socket_payload, room=f"order_{id}")
+    # Also notify the stall room (kitchen dashboard on other devices)
+    await sio.emit("order_status_updated", socket_payload, room=f"stall_{str(stall.id)}")
 
-# ─── Cancel order ────────────────────────────────────────────────────────────
-
-@router.delete("/{order_id}")
-async def cancel_order(
-    order_id: str,
-    current_user=Depends(get_current_user),
-):
-    order = await Order.get(ObjectId(order_id))
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if current_user.role == "student" and order.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not your order")
-    if order.status in (OrderStatus.ready, OrderStatus.collected):
-        raise HTTPException(status_code=400, detail="Cannot cancel a ready/collected order")
-    await order.update({"$set": {"status": OrderStatus.cancelled, "updated_at": datetime.utcnow()}})
-    return {"message": "Order cancelled"}
-
-
-# ─── Analytics ───────────────────────────────────────────────────────────────
-
-@router.get("/analytics/{stall_id}")
-async def stall_analytics(
-    stall_id: str,
-    current_user=Depends(require_role("stall_owner", "admin")),
-):
-    from app.database import get_client
-    from app.core.config import settings
-
-    db  = get_client()[settings.MONGODB_DB_NAME]
-    oid = ObjectId(stall_id)
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
-
-    daily    = await db.orders.aggregate([
-        {"$match": {"stall_id": oid, "status": {"$ne": "Cancelled"}, "placed_at": {"$gte": seven_days_ago}}},
-        {"$group": {"_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$placed_at"}}, "revenue": {"$sum": "$total"}, "orders": {"$sum": 1}}},
-        {"$sort": {"_id": 1}},
-    ]).to_list(30)
-    statuses = await db.orders.aggregate([
-        {"$match": {"stall_id": oid}},
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-    ]).to_list(20)
-    top_items = await db.orders.aggregate([
-        {"$match": {"stall_id": oid, "status": {"$ne": "Cancelled"}}},
-        {"$unwind": "$items"},
-        {"$group": {"_id": "$items.name", "qty_sold": {"$sum": "$items.qty"}, "revenue": {"$sum": "$items.subtotal"}}},
-        {"$sort": {"qty_sold": -1}},
-        {"$limit": 5},
-    ]).to_list(5)
-
-    return {"daily_revenue": daily, "status_breakdown": statuses, "top_items": top_items}
-
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def _order_dict(order: Order) -> dict:
-    ready_iso = None
-    if order.estimated_ready_time:
-        try:
-            now = datetime.now()
-            t   = datetime.strptime(order.estimated_ready_time, "%H:%M")
-            ready_iso = now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0).isoformat()
-        except Exception:
-            pass
     return {
         "id":                   str(order.id),
-        "stall_id":             str(order.stall_id),
-        "user_id":              str(order.user_id),
-        "items":                order.items,
-        "subtotal":             order.subtotal,
-        "discount":             order.discount,
-        "total":                order.total,
         "status":               order.status,
-        "predicted_prep_min":   order.predicted_prep_min,
-        "estimated_ready_time": order.estimated_ready_time,
-        "estimated_ready_iso":  ready_iso,
-        "pickup_slot":          order.pickup_slot,
-        "special_instructions": order.special_instructions,
-        "placed_at":            order.placed_at.isoformat(),
+        "estimated_ready_time": prediction["eta_ready_time"],
+        "estimated_ready_iso":  (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "remaining_min":        prediction["remaining_min"],
+        "ai_prediction":        socket_payload["ai_prediction"]
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CANCEL ORDER
+# ─────────────────────────────────────────────────────────────────────────────
+@router.delete("/{id}")
+async def cancel_order(id: str, current_user: User = Depends(get_current_user)):
+    order = await Order.get(ObjectId(id))
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Verify owner (student who placed it, stall owner, or admin)
+    if order.user_id != current_user.id and current_user.role != "admin":
+        stall = await Stall.get(order.stall_id)
+        if not stall or stall.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to cancel this order")
+            
+    order.status = OrderStatus.cancelled
+    order.updated_at = datetime.utcnow()
+    await order.save()
+    from app.services.queue_service import broadcast_queue_density
+    await broadcast_queue_density(order.stall_id)
+    return {"message": "Order cancelled successfully"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ANALYTICS
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/analytics/{stall_id}")
+async def get_stall_analytics(stall_id: str, current_user: User = Depends(get_current_user)):
+    stall = await Stall.get(ObjectId(stall_id))
+    if not stall:
+        raise HTTPException(status_code=404, detail="Stall not found")
+    if stall.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view analytics")
+        
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    
+    # 1. Daily revenue pipeline
+    daily_pipeline = [
+        {"$match": {"stall_id": ObjectId(stall_id), "placed_at": {"$gte": seven_days_ago}, "status": {"$ne": "Cancelled"}}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$placed_at"}},
+            "revenue": {"$sum": "$total"},
+            "orders": {"$sum": 1}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    daily_stats = await Order.find().aggregate(daily_pipeline).to_list()
+    
+    # 2. Top items pipeline
+    items_pipeline = [
+        {"$match": {"stall_id": ObjectId(stall_id), "status": {"$ne": "Cancelled"}}},
+        {"$unwind": "$items"},
+        {"$group": {
+            "_id": "$items.name",
+            "qty_sold": {"$sum": "$items.qty"},
+            "revenue": {"$sum": "$items.subtotal"}
+        }},
+        {"$sort": {"qty_sold": -1}},
+        {"$limit": 5}
+    ]
+    top_items = await Order.find().aggregate(items_pipeline).to_list()
+    
+    # 3. Status breakdown pipeline
+    status_pipeline = [
+        {"$match": {"stall_id": ObjectId(stall_id), "status": {"$ne": "Cancelled"}}},
+        {"$group": {
+            "_id": "$status",
+            "count": {"$sum": 1}
+        }}
+    ]
+    status_breakdown = await Order.find().aggregate(status_pipeline).to_list()
+    
+    return {
+        "daily_revenue": daily_stats,
+        "status_breakdown": status_breakdown,
+        "top_items": top_items
+    }
+
+
+async def predict_dynamic_remaining_time(order: Order) -> dict:
+    if order.status == OrderStatus.ready:
+        return {
+            "remaining_min": 0,
+            "confidence_range": "0 min",
+            "status_label": "Ready",
+            "status_color": "green",
+            "delay_risk": "None",
+            "avg_completion_speed": "0 min",
+            "eta_ready_time": order.estimated_ready_time,
+            "queue_time_min": 0,
+            "walking_time_min": 3,
+            "leave_recommendation": "Food Ready - Please Collect",
+            "leave_label": "ready",
+        }
+    if order.status in (OrderStatus.collected, OrderStatus.cancelled):
+        return {
+            "remaining_min": 0,
+            "confidence_range": "0 min",
+            "status_label": "Completed" if order.status == OrderStatus.collected else "Cancelled",
+            "status_color": "gray",
+            "delay_risk": "None",
+            "avg_completion_speed": "0 min",
+            "eta_ready_time": "--:--",
+            "queue_time_min": 0,
+            "walking_time_min": 3,
+            "leave_recommendation": "--",
+            "leave_label": "done",
+        }
+        
+    stall = await Stall.get(order.stall_id)
+    baseline_pickup_min = stall.estimated_pickup_min if stall else 5
+    
+    # Get current active orders in this kitchen
+    active_now = await Order.find(
+        Order.stall_id == order.stall_id,
+        NotIn(Order.status, [OrderStatus.collected, OrderStatus.cancelled])
+    ).count()
+    
+    # Calculate kitchen load factor: current active vs active at placement
+    active_at_placement = getattr(order, "active_orders_at_placement", 1) or 1
+    if active_at_placement == 0:
+        active_at_placement = 1
+        
+    load_ratio = active_now / active_at_placement
+    
+    # Item preparation times factor
+    item_prep_times = [item.get("prep_time_min", 5) for item in order.items]
+    max_item_prep = max(item_prep_times) if item_prep_times else 5
+    
+    # Base remaining time calculation
+    elapsed_mins = (datetime.utcnow() - order.placed_at).total_seconds() / 60.0
+    initial_estimate = order.predicted_prep_min or max_item_prep
+    
+    # Adjust remaining time dynamically based on status and load ratio
+    status_factor = 1.0
+    if order.status == OrderStatus.almost_ready:
+        status_factor = 0.2
+    elif order.status == OrderStatus.preparing:
+        status_factor = 0.5
+    elif order.status == OrderStatus.accepted:
+        status_factor = 0.8
+        
+    # Scale remaining time based on load ratio:
+    load_multiplier = max(0.5, min(2.5, load_ratio))
+    
+    raw_remaining = (initial_estimate - elapsed_mins) * status_factor * load_multiplier
+    
+    # Add a buffer for rush hour (12-14 and 17-19)
+    now = datetime.now()
+    is_rush = (12 <= now.hour <= 14) or (17 <= now.hour <= 19)
+    if is_rush and order.status != OrderStatus.almost_ready:
+        raw_remaining += 2.0
+        
+    remaining_min = max(1, int(round(raw_remaining)))
+    
+    # If status is almost ready, remaining time shouldn't exceed 3 mins
+    if order.status == OrderStatus.almost_ready:
+        remaining_min = min(remaining_min, 3)
+    # If status is preparing, remaining time shouldn't exceed initial prep time
+    if order.status == OrderStatus.preparing:
+        remaining_min = min(remaining_min, max(3, initial_estimate - 2))
+        
+    # Calculate confidence range
+    lower_bound = max(1, remaining_min - 2)
+    upper_bound = remaining_min + 2
+    
+    if order.status == OrderStatus.almost_ready:
+        lower_bound = max(1, remaining_min - 1)
+        upper_bound = remaining_min + 1
+        
+    confidence_range = f"{lower_bound}\u2013{upper_bound} min"
+    
+    # Determine Delay Risk and Status labels
+    if load_ratio > 1.5:
+        delay_risk = "High"
+        status_label = "Kitchen Busy"
+        status_color = "red"
+    elif load_ratio > 1.1:
+        delay_risk = "Medium"
+        status_label = "Slight Delay"
+        status_color = "yellow"
+    else:
+        delay_risk = "Low"
+        status_label = "On Time"
+        status_color = "green"
+        
+    # Historical completion speed helper (last 10 orders)
+    completed_orders = await Order.find(
+        Order.stall_id == order.stall_id,
+        Order.status == OrderStatus.collected
+    ).sort(-Order.placed_at).limit(10).to_list()
+    
+    if completed_orders:
+        avg_speed = sum((o.collected_at - o.placed_at).total_seconds() / 60.0 for o in completed_orders) / len(completed_orders)
+        avg_speed_str = f"{avg_speed:.1f} min"
+    else:
+        avg_speed_str = f"{baseline_pickup_min:.1f} min"
+        
+    # Local time ready time
+    eta_ready_time = (datetime.now() + timedelta(minutes=remaining_min)).strftime("%H:%M")
+
+    # ── Smart Pickup Prediction ───────────────────────────────────────────
+    # Queue time at counter: scales with active orders (2 min base + 0.5 per active order beyond 3)
+    queue_time_min = max(1, int(round(2 + max(0, active_now - 3) * 0.5)))
+    queue_time_min = min(queue_time_min, 8)  # cap at 8 min
+
+    # Walking time: default 3 min (campus walk)
+    walking_time_min = 3
+
+    # Optimal leave time = ready time minus queue and walk time
+    leave_offset_min = remaining_min - queue_time_min - walking_time_min
+    leave_time_abs = (datetime.now() + timedelta(minutes=max(0, leave_offset_min))).strftime("%H:%M")
+
+    if remaining_min <= 0:
+        leave_recommendation = "Food Ready - Please Collect"
+        leave_label = "ready"
+    elif leave_offset_min <= 0:
+        leave_recommendation = "Leave Now"
+        leave_label = "now"
+    elif leave_offset_min <= 3:
+        leave_recommendation = f"Leave in {int(leave_offset_min)} min ({leave_time_abs})"
+        leave_label = "soon"
+    else:
+        leave_recommendation = f"Leave at {leave_time_abs}"
+        leave_label = "later"
+
+    return {
+        "remaining_min": remaining_min,
+        "confidence_range": confidence_range,
+        "status_label": status_label,
+        "status_color": status_color,
+        "delay_risk": delay_risk,
+        "avg_completion_speed": avg_speed_str,
+        "eta_ready_time": eta_ready_time,
+        # Smart Pickup fields
+        "queue_time_min": queue_time_min,
+        "walking_time_min": walking_time_min,
+        "leave_recommendation": leave_recommendation,
+        "leave_label": leave_label,
     }

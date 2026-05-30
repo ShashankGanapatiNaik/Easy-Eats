@@ -1,9 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
+import { io } from "socket.io-client";
 
 import {
-  getStall
+  getStall,
+  SOCKET_URL
 } from "../api";
 
 function Restaurant() {
@@ -45,6 +47,26 @@ function Restaurant() {
 
     loadRestaurant();
 
+  }, [id]);
+
+  // Socket.IO for Live Queue Updates
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+
+    socket.on("queue_update", (data) => {
+      if (data.stall_id === id) {
+        setStall((prevStall) =>
+          prevStall ? { ...prevStall, queue_density: data.queue_density } : null
+        );
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, [id]);
 
   const loadRestaurant = async () => {
@@ -214,7 +236,7 @@ function Restaurant() {
 
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white z-10">
 
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
 
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${stall.is_open
                 ? "bg-lime-500 text-zinc-900"
@@ -226,6 +248,39 @@ function Restaurant() {
                 : "Closed"}
 
             </span>
+
+            {stall.is_open && stall.queue_density && (
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border backdrop-blur-md flex items-center gap-1
+                ${stall.queue_density.crowd_level === "Low" 
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" 
+                  : stall.queue_density.crowd_level === "Medium"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                    : "bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full 
+                  ${stall.queue_density.crowd_level === "Low" 
+                    ? "bg-emerald-400" 
+                    : stall.queue_density.crowd_level === "Medium"
+                      ? "bg-amber-400"
+                      : "bg-rose-400 animate-ping"
+                  }`} 
+                />
+                {stall.queue_density.crowd_level} Crowd • {stall.queue_density.estimated_wait_min} min wait
+              </span>
+            )}
+
+            {stall.is_open && stall.queue_density?.fast_pickup && (
+              <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold px-2 py-0.5 rounded-full">
+                ⚡ Fast Pickup
+              </span>
+            )}
+            
+            {stall.is_open && stall.queue_density?.is_rush_hour && (
+              <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold px-2 py-0.5 rounded-full animate-pulse">
+                🔥 Rush Hour
+              </span>
+            )}
 
           </div>
 
@@ -277,6 +332,12 @@ function Restaurant() {
               {" "}min pickup
 
             </span>
+
+            {stall.is_open && stall.queue_density && (
+              <span className="bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-medium border border-white/10">
+                🕒 Best Time to Order: {stall.queue_density.best_time_to_order}
+              </span>
+            )}
 
           </div>
 

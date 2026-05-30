@@ -18,6 +18,7 @@ from app.utils.security import (
 )
 
 from app.services.sms_service import send_sms
+from app.services.email_service import send_email, get_otp_html
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +48,13 @@ class LoginBody(BaseModel):
 
 class SendOTPBody(BaseModel):
     phone: str
+    email: Optional[EmailStr] = None
 
 
 class VerifyOTPBody(BaseModel):
     phone: str
     code: str
+    email: Optional[EmailStr] = None
 
 
 class UpdateProfileBody(BaseModel):
@@ -275,18 +278,18 @@ async def send_otp(body: SendOTPBody):
 
     await verification.insert()
 
-    sms_text = (
-        f"Easy Eats OTP: {code}"
-    )
-
-    await send_sms(
-        phone,
-        sms_text
-    )
-
-    print(
-        f"\n[SMS OTP] Sent OTP {code} to {phone}\n"
-    )
+    # Send via Email if provided
+    if body.email:
+        await send_email(
+            to_email=body.email,
+            subject="Easy Eats OTP Verification",
+            body=f"Hello from Easy Eats 🍔\n\nYour verification OTP is:\n\n{code}\n\nThis OTP expires in 5 minutes.",
+            html_body=get_otp_html(code)
+        )
+    else:
+        # Fallback to SMS if no email is provided
+        sms_text = f"Easy Eats OTP: {code}"
+        await send_sms(phone, sms_text)
 
     return {
         "message": "OTP sent successfully",
@@ -357,8 +360,12 @@ async def forgot_password_send(
 
     await verification.insert()
 
-    print(
-        f"\n\nRESET OTP FOR {body.email}: {otp}\n\n"
+    # Send reset OTP code via Email
+    await send_email(
+        to_email=body.email,
+        subject="Easy Eats OTP Verification",
+        body=f"Hello from Easy Eats 🍔\n\nYour verification OTP is:\n\n{otp}\n\nThis OTP expires in 5 minutes.",
+        html_body=get_otp_html(otp)
     )
 
     return {

@@ -82,6 +82,10 @@ async def list_stalls(
 
     results = await stalls.skip(skip).limit(limit).to_list()
 
+    import asyncio
+    from app.services.queue_service import get_queue_density
+    densities = await asyncio.gather(*(get_queue_density(s) for s in results))
+
     return [
         {
             "id": str(s.id),
@@ -96,8 +100,9 @@ async def list_stalls(
             "location_label": s.location_label,
             "estimated_pickup_min": s.estimated_pickup_min,
             "menu_categories": s.menu_categories,
+            "queue_density": densities[i],
         }
-        for s in results
+        for i, s in enumerate(results)
     ]
 
 
@@ -315,6 +320,9 @@ async def get_stall(stall_id: str):
     # RETURN RESPONSE
     # =====================================================
 
+    from app.services.queue_service import get_queue_density
+    density = await get_queue_density(stall)
+
     return {
 
         "id":
@@ -370,7 +378,10 @@ async def get_stall(stall_id: str):
         # =================================================
 
         "reviews":
-            review_data
+            review_data,
+
+        "queue_density":
+            density
 
     }
 
@@ -482,6 +493,8 @@ async def my_stall(current_user=Depends(get_current_user)):
     if not stall:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="No stall found for this account")
+    from app.services.queue_service import get_queue_density
+    density = await get_queue_density(stall)
     return {
         "id":                str(stall.id),
         "name":              stall.name,
@@ -495,6 +508,7 @@ async def my_stall(current_user=Depends(get_current_user)):
         "avg_rating":        stall.avg_rating,
         "total_orders":      stall.total_orders,
         "operating_hours":   stall.operating_hours,
+        "queue_density":     density,
     }
 
 

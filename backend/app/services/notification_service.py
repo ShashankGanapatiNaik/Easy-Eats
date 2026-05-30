@@ -8,7 +8,13 @@ Saves to notifications collection and prevents duplicate notifications.
 import logging
 from bson import ObjectId
 from app.models.notification import Notification
+from app.models.user import User
 from app.services.sms_service import send_sms
+from app.services.email_service import (
+    send_email,
+    get_order_placed_html,
+    get_food_ready_html,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +84,34 @@ async def notify_order_placed(
         f"Pickup Code: {code}\n"
         f"ETA: {prep_min} mins"
     )
-    return await send_order_notification(
+    success = await send_order_notification(
         user_id=user_id,
         order_id=ObjectId(order_id),
         notification_type="order_placed",
         phone=phone,
         message=msg
     )
+
+    # Trigger Order Confirmation Email
+    user = await User.get(user_id)
+    if user and user.email:
+        email_body = (
+            f"Hello {user.name},\n\n"
+            f"Your order has been placed successfully.\n\n"
+            f"Restaurant: {stall_name}\n"
+            f"Order ID: #{order_id}\n"
+            f"Pickup Code: {code}\n"
+            f"Estimated Ready Time: {prep_min} mins\n\n"
+            f"Track your order in Easy Eats."
+        )
+        await send_email(
+            to_email=user.email,
+            subject="Your Easy Eats Order is Confirmed 🍔",
+            body=email_body,
+            html_body=get_order_placed_html(user.name, stall_name, order_id, prep_min)
+        )
+
+    return success
 
 
 async def notify_order_ready(
@@ -101,10 +128,27 @@ async def notify_order_ready(
         f"Pickup Code: {code}\n\n"
         f"Please collect your order from the counter."
     )
-    return await send_order_notification(
+    success = await send_order_notification(
         user_id=user_id,
         order_id=ObjectId(order_id),
         notification_type="order_ready",
         phone=phone,
         message=msg
     )
+
+    # Trigger Food Ready Email
+    user = await User.get(user_id)
+    if user and user.email:
+        email_body = (
+            f"Your order from {stall_name} is READY.\n\n"
+            f"Pickup Code: {code}\n\n"
+            f"Please show this code at the counter."
+        )
+        await send_email(
+            to_email=user.email,
+            subject="Your Food is Ready for Pickup 🍟",
+            body=email_body,
+            html_body=get_food_ready_html(stall_name, order_id)
+        )
+
+    return success

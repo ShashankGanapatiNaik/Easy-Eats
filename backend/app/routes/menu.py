@@ -21,6 +21,21 @@ from app.utils.security import require_role, get_current_user
 
 router = APIRouter(prefix="/menu", tags=["Menu"])
 
+# ─── Recommendation affinity rules ────────────────────────────────────────────
+# Maps category keywords → list of recommended category keywords
+AFFINITY_MAP = {
+    "burger":   ["fries", "drinks", "dessert", "coke", "sides"],
+    "pizza":    ["garlic bread", "drinks", "coke", "sides"],
+    "coffee":   ["sandwich", "snacks", "cookies", "muffin", "bakery"],
+    "tea":      ["samosa", "snacks", "biscuit", "bakery"],
+    "sandwich": ["drinks", "fries", "coke", "snacks"],
+    "biryani":  ["raita", "dessert", "drinks", "coke"],
+    "pasta":    ["garlic bread", "drinks", "dessert"],
+    "noodles":  ["drinks", "dessert", "snacks"],
+    "wrap":     ["fries", "drinks", "coke"],
+    "rice":     ["dessert", "drinks", "coke"],
+}
+
 
 class MenuItemBody(BaseModel):
     name: str
@@ -197,3 +212,92 @@ def _group_by_category(items: list) -> dict:
         cat = item.category or "Other"
         grouped.setdefault(cat, []).append(_item_dict(item))
     return grouped
+
+
+# ─── Smart Recommendations ────────────────────────────────────────────────────
+
+class RecommendationRequest(BaseModel):
+    cart_item_ids: List[str] = []   # menu_item_id strings already in cart
+
+
+@router.post("/{stall_id}/recommendations")
+async def get_recommendations(
+    stall_id: str,
+    body: RecommendationRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns up to 4 smart recommendations for items the student should add.
+    Scoring: affinity rules (category match) > is_popular > time-of-day defaults.
+    Items already in the cart are excluded.
+    """
+    # Fetch all available items for this stall (excluding cart items)
+    cart_ids = set(body.cart_item_ids)
+    all_items = await MenuItem.find(
+        MenuItem.stall_id == ObjectId(stall_id),
+        MenuItem.is_deleted == False,
+        MenuItem.is_available == True,
+    ).to_list()
+
+    # Exclude items already in cart
+    candidates = [i for i in all_items if str(i.id) not in cart_ids]
+    if not candidates:
+        return []
+
+    # Fetch cart item details to determine categories
+    cart_categories: List[str] = []
+    for item_id in cart_ids:
+        try:
+            ci = await MenuItem.get(ObjectId(item_id))
+            if ci:
+                cart_categories.append((ci.name + " " + ci.category).lower())
+        except Exception:
+            pass
+
+    # Score candidates by affinity
+    def score_item(item: MenuItem) -> int:
+        score = 0
+        item_text = (item.name + " " + item.category).lower()
+        for cart_text in cart_categories:
+            for keyword, affinities in AFFINITY_MAP.items():
+                if keyword in cart_text:
+                    if any(aff in item_text for aff in affinities):
+                        score += 3
+        if item.is_popular:
+            score += 2
+        # Time-of-day boost: coffee/tea in morning (6-11), snacks in evening (16-20)
+        hour = datetime.now().hour
+        if 6 <= hour <= 11 and any(k in item_text for k in ["coffee", "tea", "sandwich", "snack"]):
+            score += 1
+        if 16 <= hour <= 20 and any(k in item_text for k in ["snack", "samosa", "chai", "tea", "biscuit"]):
+            score += 1
+        return score
+
+    scored = sorted(candidates, key=score_item, reverse=True)
+    top4 = scored[:4]
+    return [_item_dict(i) for i in top4]
+
+
+class ClickTrackBody(BaseModel):
+    stall_id: str
+    item_id: str
+
+
+@router.post("/recommendations/click", status_code=201)
+async def track_recommendation_click(
+    body: ClickTrackBody,
+    current_user=Depends(get_current_user),
+):
+    """Records a recommendation click event for analytics."""
+    from app.models.recommendation_analytics import RecommendationAnalytics
+    try:
+        event = RecommendationAnalytics(
+            user_id=current_user.id,
+            stall_id=ObjectId(body.stall_id),
+            item_id=ObjectId(body.item_id),
+            action="click",
+        )
+        await event.insert()
+    except Exception:
+        pass  # Never fail the user experience for analytics
+    return {"recorded": True}

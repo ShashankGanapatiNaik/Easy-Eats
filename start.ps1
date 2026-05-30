@@ -106,7 +106,7 @@ Write-Host "  Close this window or press Ctrl+C to stop."
 Write-Host "─────────────────────────────────────────────"
 
 # Start backend in new window
-$backendCmd = "Set-Location '$Backend'; & '.venv\Scripts\uvicorn.exe' app.main:app --host 0.0.0.0 --port 8000 --reload"
+$backendCmd = "Set-Location '$Backend'; & '.venv\Scripts\uvicorn.exe' app.main:socket_app --host 0.0.0.0 --port 8000 --reload"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
 
 Start-Sleep -Seconds 2

@@ -81,12 +81,16 @@ RESPONSE RULES:
 
 - "order" field is null unless you detected a valid order intent
 - "requires_confirmation" = true whenever an order is detected
-- Keep "message" conversational, friendly, 1-2 sentences max
+- Keep "message" conversational, friendly, 1-2 sentences max, EXCEPT when the user asks for a menu or list of items. In that case, list ALL available items from the requested hotel/stall clearly with their prices and descriptions using a neat, bulleted list with emojis.
+- Note: "hotel" (including typos like "hitle", "htel", "hotle", "hostel"), "stall", "restaurant", "canteen", and "cafe" are all synonymous in Easy Eats. If the user asks for available items in "hotel" or "hitle" generally, or makes a query about hotels/stalls without specifying a particular hotel name, you must list the available items for ALL hotels/stalls (Campus Cafe, Burger Hub, Coffee Corner) grouped clearly under each hotel's name with emojis and prices. Never say you found nothing; always present the full menu of options!
+- If a stall is closed (indicated by "is_open": false in the menu JSON), or if an item is sold out (indicated by "is_available": false in the menu JSON), you can still list it when asked. However, politely inform the user that they cannot book or place orders for this item/stall until it becomes available or the stall opens.
 - If wallet is insufficient, say so in "message" and set intent="wallet"
+- If the user wants to top up or add money to their wallet (e.g. "top up 500", "add 500 to my wallet", "credit 1000"), respond in JSON format with intent="wallet", "topup_amount": [numeric amount], and "message" describing that you are processing the deposit.
 - For suggestions, describe 2-3 items briefly
 - Always include exact item IDs and prices from the menu JSON
 - Never invent items not in the menu
 - If no matching stall/item found, say so politely"""
+
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

@@ -89,7 +89,7 @@ echo   Frontend -^> http://localhost:5173
 echo.
 
 REM Backend window
-start "Easy Eats Backend" cmd /k "cd /d "%BACKEND%" && .venv\Scripts\uvicorn.exe app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "Easy Eats Backend" cmd /k "cd /d "%BACKEND%" && .venv\Scripts\uvicorn.exe app.main:socket_app --host 0.0.0.0 --port 8000 --reload"
 
 timeout /t 2 /nobreak >nul
 

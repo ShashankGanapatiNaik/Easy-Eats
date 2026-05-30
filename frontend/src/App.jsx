@@ -25,6 +25,8 @@ import {
   myOrders
 } from "./api";
 
+import GlobalTrackOrderButton from "./components/GlobalTrackOrderButton";
+
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Restaurant from "./pages/Restaurant";
@@ -277,72 +279,7 @@ function Inner() {
 
     location.pathname.startsWith("/kitchen");
 
-  // =====================================================
-  // ACTIVE ORDER
-  // =====================================================
 
-  const [activeOrder, setActiveOrder] =
-    useState(null);
-
-  // =====================================================
-  // FETCH ACTIVE ORDER
-  // =====================================================
-
-  useEffect(() => {
-
-    fetchActiveOrder();
-
-    const interval = setInterval(() => {
-
-      fetchActiveOrder();
-
-    }, 5000);
-
-    return () =>
-      clearInterval(interval);
-
-  }, []);
-
-  const fetchActiveOrder =
-    async () => {
-
-      try {
-
-        const res =
-          await myOrders();
-
-        const active =
-          res.data.find(
-
-            (order) =>
-
-              order.status !==
-              "Collected"
-
-              &&
-
-              order.status !==
-              "Cancelled"
-
-          );
-
-        if (active) {
-
-          setActiveOrder(active);
-
-        } else {
-
-          setActiveOrder(null);
-
-        }
-
-      } catch (err) {
-
-        console.log(err);
-
-      }
-
-    };
 
   return (
 
@@ -360,80 +297,7 @@ function Inner() {
 
       </Suspense>
 
-      {/* =====================================================
-      LIVE TRACKING BAR
-      ===================================================== */}
-
-      {activeOrder &&
-        activeOrder.status !== "Collected" &&
-        activeOrder.status !== "Cancelled" && (
-
-          <div className="fixed bottom-20 left-0 right-0 z-50 px-4 pointer-events-none">
-
-            <div
-              onClick={() =>
-                navigate(
-                  `/track/${activeOrder.id}`
-                )
-              }
-              className="pointer-events-auto max-w-md mx-auto bg-zinc-900 text-white rounded-3xl
-                       shadow-2xl px-5 py-4 flex items-center justify-between cursor-pointer
-                       active:scale-[0.98] transition-all border border-zinc-800"
-            >
-
-              {/* LEFT */}
-
-              <div className="flex items-center gap-4">
-
-                <div className="relative">
-
-                  <div className="w-14 h-14 rounded-2xl bg-lime-500 flex items-center justify-center text-2xl shadow-lg shadow-lime-500/40">
-
-                    🛵
-
-                  </div>
-
-                  <div className="absolute inset-0 rounded-2xl border-4 border-lime-400 animate-ping" />
-
-                </div>
-
-                <div>
-
-                  <h3 className="font-black text-lg">
-
-                    Track Order
-
-                  </h3>
-
-                  <p className="text-zinc-400 text-sm">
-
-                    #
-
-                    {activeOrder.id?.slice(-6)}
-
-                    {" • "}
-
-                    {activeOrder.status}
-
-                  </p>
-
-                </div>
-
-              </div>
-
-              {/* RIGHT */}
-
-              <div className="bg-lime-500 text-zinc-900 px-5 py-3 rounded-2xl font-black">
-
-                Live
-
-              </div>
-
-            </div>
-
-          </div>
-
-        )}
+      <GlobalTrackOrderButton />
 
       {/* =====================================================
       ROUTES

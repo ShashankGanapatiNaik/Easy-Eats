@@ -62,6 +62,7 @@ class Order(Document):
     # ── AI Prediction ──────────────────────────────────────────
     predicted_prep_min: int = 0
     estimated_ready_time: Optional[str] = None
+    estimated_ready_iso: Optional[str] = None
     pickup_slot: Optional[str] = None
     active_orders_at_placement: int = 0
 

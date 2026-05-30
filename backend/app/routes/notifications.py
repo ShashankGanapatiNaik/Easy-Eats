@@ -13,12 +13,14 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 async def get_notifications(
     current_user: User = Depends(get_current_user),
     limit: int = 15,
+    unread_only: bool = True,
 ):
-    """Get active unread notifications for the current student."""
-    notifications = await Notification.find(
-        Notification.user_id == current_user.id,
-        Notification.is_read == False
-    ).sort(-Notification.sent_at).limit(limit).to_list()
+    """Get active notifications for the current student."""
+    query = [Notification.user_id == current_user.id]
+    if unread_only:
+        query.append(Notification.is_read == False)
+        
+    notifications = await Notification.find(*query).sort(-Notification.sent_at).limit(limit).to_list()
     
     return [
         {

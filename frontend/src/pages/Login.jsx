@@ -392,6 +392,7 @@ export default function Login() {
       <OTPModal
         isOpen={isOtpModalOpen}
         phone={`${stCountryCode}${stPhone.replace(/\D/g, "")}`}
+        email={stEmail}
         onVerify={handleOtpVerified}
         onClose={() => setIsOtpModalOpen(false)}
       />

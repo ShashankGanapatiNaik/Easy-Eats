@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { sendOtp, verifyOtp } from "../api";
 
-export default function OTPModal({ isOpen, phone, onVerify, onClose }) {
+export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(60); // Modern 60 second cooldown
   const [resending, setResending] = useState(false);
@@ -76,8 +76,8 @@ export default function OTPModal({ isOpen, phone, onVerify, onClose }) {
     setError("");
     setSuccess("");
     try {
-      await sendOtp(phone);
-      setSuccess("OTP sent successfully!");
+      await sendOtp(phone, email);
+      setSuccess("OTP sent successfully to your email!");
       setTimer(60);
       setOtp(["", "", "", "", "", ""]);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -164,11 +164,11 @@ export default function OTPModal({ isOpen, phone, onVerify, onClose }) {
           </div>
         )}
 
-        {/* Developer Tip */}
-        <div className="mb-4 text-xs text-amber-700 bg-amber-50/80 border border-amber-200/50 rounded-2xl p-3 text-left leading-relaxed flex gap-2">
-          <span className="text-base flex-shrink-0">💡</span>
+        {/* Inbox Tip */}
+        <div className="mb-4 text-xs text-lime-800 bg-lime-50/80 border border-lime-200/50 rounded-2xl p-3 text-left leading-relaxed flex gap-2">
+          <span className="text-base flex-shrink-0">✉️</span>
           <span>
-            <strong>Verification Note:</strong> The OTP code is generated dynamically on the backend. Please check your <strong>backend terminal console</strong> to find the active code.
+            <strong>Verification Note:</strong> A one-time verification code has been sent to your email. Please check your <strong>Inbox</strong> or <strong>Spam folder</strong>.
           </span>
         </div>
 
