@@ -390,7 +390,9 @@ function Restaurant() {
 
             <div
               key={item.id}
-              className="bg-white rounded-3xl p-4 shadow-sm border flex gap-4"
+              className={`bg-white rounded-3xl p-4 shadow-sm border flex gap-4 transition-all ${
+                !item.is_available ? "opacity-60 select-none" : ""
+              }`}
             >
 
               <div className="w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0">
@@ -410,11 +412,16 @@ function Restaurant() {
 
                 <div>
 
-                  <h3 className="font-bold text-lg text-zinc-900">
-
-                    {item.name}
-
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-zinc-900">
+                      {item.name}
+                    </h3>
+                    {!item.is_available && (
+                      <span className="bg-red-100 text-red-600 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        Sold Out
+                      </span>
+                    )}
+                  </div>
 
                   <p className="text-xs text-gray-400 mt-0.5">
 
@@ -432,7 +439,16 @@ function Restaurant() {
 
                   </p>
 
-                  {found ? (
+                  {!item.is_available ? (
+
+                    <button
+                      disabled
+                      className="bg-gray-100 text-gray-400 px-4 py-2 rounded-full font-bold text-xs cursor-not-allowed border border-gray-200"
+                    >
+                      SOLD OUT
+                    </button>
+
+                  ) : found ? (
 
                     <div className="flex items-center justify-between w-24 bg-zinc-900 text-white px-3 py-2 rounded-full">
 
