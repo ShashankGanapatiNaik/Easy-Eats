@@ -58,7 +58,11 @@ export const myOrders        = ()             => api.get("/orders/my");
 export const getOrderHistory = (params = {})  => api.get("/orders/history", { params });
 export const stallOrders     = (stallId, params = {}) => api.get(`/orders/stall/${stallId}`, { params });
 export const trackOrder      = (id)           => api.get(`/orders/${id}/track`);
-export const updateStatus    = (id, status)   => api.put(`/orders/${id}/status`, null, { params: { status } });
+export const updateStatus    = (id, status, prepTime) => {
+  const params = { status };
+  if (prepTime) params.prep_time = prepTime;
+  return api.put(`/orders/${id}/status`, null, { params });
+};
 export const cancelOrder     = (id)           => api.delete(`/orders/${id}`);
 export const getAnalytics    = (stallId)      => api.get(`/orders/analytics/${stallId}`);
 

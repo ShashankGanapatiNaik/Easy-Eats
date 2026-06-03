@@ -364,10 +364,10 @@ export default function Login() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 // { label: "🎓 Student", email: "student@demo.com", role: "student" },
-                { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
+                // { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
                 { label: "🍔 Burger Hub", email: "burger@demo.com", role: "stall_owner" },
                 { label: "☕ Coffee Corner", email: "coffee@demo.com", role: "stall_owner" },
-                { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
+                // { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
               ].filter(d => role === "admin" ? d.role === "admin" : true).map((d) => (
                 <button key={d.label} type="button"
                   onClick={() => {

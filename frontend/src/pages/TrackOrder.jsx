@@ -28,6 +28,17 @@ function fmtCountdown(sec) {
   return `${m}:${s}`;
 }
 
+function formatTime(iso, fallback) {
+  if (!iso) return fallback || "--:--";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return fallback || "--:--";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch (e) {
+    return fallback || "--:--";
+  }
+}
+
 /* ─── Toast component ────────────────────────────────────────────────────── */
 function StatusToast({ toast, onClose }) {
   useEffect(() => {
@@ -282,7 +293,7 @@ export default function TrackOrder() {
                     <div className="text-left">
                       <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Ready By</p>
                       <p className="text-2xl font-black text-white mt-0.5">
-                        {order.estimated_ready_time || "--:--"}
+                        {formatTime(order.estimated_ready_iso, order.estimated_ready_time)}
                       </p>
                       <p className="text-xs text-indigo-400/80 mt-1 font-medium">
                         Based on live active orders

@@ -1,5 +1,5 @@
 // src/components/dashboard/OrderCard.jsx
-// Rich order card with ETA countdown, prep time input modal, status actions
+// Simplified kitchen order card: Accept (set prep time → Preparing) → Ready for Pickup
 
 import { useState, useEffect } from "react";
 import { updateStatus } from "../../api";
@@ -14,15 +14,6 @@ const STATUS_STYLE = {
   Cancelled:      { pill: "bg-red-100 text-red-600 border-red-200",       dot: "bg-red-400"    },
 };
 
-const STATUS_NEXT = {
-  Placed:         "Accepted",
-  Accepted:       "Preparing",
-  Preparing:      "Almost Ready",
-  "Almost Ready": "Ready",
-  Ready:          "Collected",
-};
-
-const PREP_PRESETS = [5, 10, 15, 20, 30];
 const ACTIVE = ["Placed", "Accepted", "Preparing", "Almost Ready", "Ready"];
 
 // Generate a short human-readable pickup code from order id
@@ -55,85 +46,9 @@ function useCountdown(targetIso) {
   return { mins, sec, secs, expired: secs === 0 };
 }
 
-// ── Prep Time Modal ───────────────────────────────────────────────────────────
-function PrepModal({ onConfirm, onCancel }) {
-  const [selected, setSelected] = useState(10);
-  const [custom,   setCustom]   = useState("");
-
-  const finalTime = custom ? parseInt(custom) : selected;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs p-6 animate-slide-up">
-        <h3 className="font-black text-zinc-900 text-lg mb-1">Set Prep Time</h3>
-        <p className="text-gray-400 text-sm mb-5">
-          How long will this order take?
-        </p>
-
-        {/* Preset buttons */}
-        <div className="flex gap-2 flex-wrap mb-4">
-          {PREP_PRESETS.map(min => (
-            <button
-              key={min}
-              onClick={() => { setSelected(min); setCustom(""); }}
-              className={`px-4 py-2 rounded-full text-sm font-bold border transition-all ${
-                selected === min && !custom
-                  ? "bg-zinc-900 text-white border-zinc-900"
-                  : "border-gray-200 text-gray-600 hover:border-lime-500"
-              }`}
-            >
-              {min} min
-            </button>
-          ))}
-        </div>
-
-        {/* Custom input */}
-        <div className="mb-5">
-          <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
-            Custom (minutes)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={60}
-            value={custom}
-            onChange={e => { setCustom(e.target.value); }}
-            placeholder="e.g. 12"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
-                       outline-none focus:border-lime-500 focus:ring-1 focus:ring-lime-500"
-          />
-        </div>
-
-        {/* Preview */}
-        <div className="bg-lime-50 border border-lime-200 rounded-xl px-4 py-2.5 mb-5 text-center">
-          <p className="text-xs text-lime-600 font-semibold">Ready by</p>
-          <p className="text-xl font-black text-lime-700">
-            {new Date(Date.now() + finalTime * 60000)
-              .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </p>
-          <p className="text-xs text-lime-500 mt-0.5">{finalTime} min from now</p>
-        </div>
-
-        <div className="flex gap-3">
-          <button onClick={onCancel}
-            className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-500 font-bold text-sm hover:bg-gray-50">
-            Cancel
-          </button>
-          <button onClick={() => onConfirm(finalTime)}
-            className="flex-1 py-3 rounded-xl bg-lime-500 text-zinc-900 font-bold text-sm hover:bg-lime-600 shadow-md">
-            Confirm →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main OrderCard ────────────────────────────────────────────────────────────
 export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
   const [loading,      setLoading]      = useState(false);
-  const [showPrepModal,setShowPrepModal]= useState(false);
-  const [pendingStatus,setPendingStatus]= useState(null);
   const [localOrder,   setLocalOrder]   = useState(order);
 
   // sync if parent refreshes
@@ -141,41 +56,89 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
   const countdown = useCountdown(localOrder.estimated_ready_iso);
   const elapsed   = Math.floor((Date.now() - new Date(localOrder.placed_at)) / 60000);
-  const isLate    = elapsed > 14 && ACTIVE.includes(localOrder.status);
+  // Overdue: only if ETA has been set (order was accepted) and countdown expired
+  const hasEta    = !!localOrder.estimated_ready_iso && ACTIVE.includes(localOrder.status) && localOrder.status !== "Placed";
+  const isOverdue = hasEta && countdown.expired && localOrder.status !== "Ready";
   const isReady   = localOrder.status === "Ready";
   const isCollected = localOrder.status === "Collected";
+  const isPending = localOrder.status === "Placed";
+  const isPreparing = ["Preparing", "Accepted", "Almost Ready"].includes(localOrder.status);
   const style     = STATUS_STYLE[localOrder.status] || STATUS_STYLE.Placed;
-  const nextStatus = STATUS_NEXT[localOrder.status];
   const code       = pickupCode(localOrder.id);
 
-  const handleAdvance = () => {
-    if (!nextStatus) return;
-    const needsPrep = localOrder.status === "Placed" || localOrder.status === "Accepted";
-    if (needsPrep) {
-      setPendingStatus(nextStatus);
-      setShowPrepModal(true);
-    } else {
-      doAdvance(nextStatus, null);
-    }
-  };
-
-  const doAdvance = async (status, prepMins) => {
+  // ── Accept Order: transition directly to Preparing ─────────────────────────
+  const handleAcceptOrder = async () => {
     setLoading(true);
-    setShowPrepModal(false);
 
-    let readyIso = localOrder.estimated_ready_iso;
-    if (prepMins) {
-      readyIso = new Date(Date.now() + prepMins * 60000).toISOString();
-    }
-
-    const updated = { ...localOrder, status, estimated_ready_iso: readyIso };
+    const prepMins = localOrder.predicted_prep_min || 10;
+    const readyIso = new Date(Date.now() + prepMins * 60000).toISOString();
+    const updated = { ...localOrder, status: "Preparing", estimated_ready_iso: readyIso };
     setLocalOrder(updated);
 
     try {
-      await updateStatus(localOrder.id, status);
-      onUpdated?.({ ...updated });
+      // Omit prepTime so backend automatically uses configured prediction prep time
+      const res = await updateStatus(localOrder.id, "Preparing");
+      const serverData = res.data;
+      const merged = {
+        ...updated,
+        estimated_ready_time: serverData.estimated_ready_time,
+        estimated_ready_iso:  serverData.estimated_ready_iso,
+        remaining_min:        serverData.remaining_min,
+        ai_prediction:        serverData.ai_prediction,
+      };
+      setLocalOrder(merged);
+      onUpdated?.(merged);
+    } catch {
+      setLocalOrder(order); // revert to original prop
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Ready for Pickup ──────────────────────────────────────────────────────
+  const handleReadyForPickup = async () => {
+    setLoading(true);
+    const updated = { ...localOrder, status: "Ready" };
+    setLocalOrder(updated);
+
+    try {
+      const res = await updateStatus(localOrder.id, "Ready");
+      const serverData = res.data;
+      setLocalOrder({ ...updated, ...serverData });
+      onUpdated?.({ ...updated, ...serverData });
     } catch {
       setLocalOrder(localOrder); // revert
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Mark Collected ────────────────────────────────────────────────────────
+  const handleCollected = async () => {
+    setLoading(true);
+    const updated = { ...localOrder, status: "Collected" };
+    setLocalOrder(updated);
+
+    try {
+      await updateStatus(localOrder.id, "Collected");
+      onUpdated?.(updated);
+    } catch {
+      setLocalOrder(localOrder);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Cancel ────────────────────────────────────────────────────────────────
+  const handleCancel = async () => {
+    setLoading(true);
+    try {
+      await updateStatus(localOrder.id, "Cancelled");
+      const updated = { ...localOrder, status: "Cancelled" };
+      setLocalOrder(updated);
+      onUpdated?.(updated);
+    } catch {
+      // revert
     } finally {
       setLoading(false);
     }
@@ -188,19 +151,13 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
   return (
     <>
-      {showPrepModal && (
-        <PrepModal
-          onConfirm={(mins) => doAdvance(pendingStatus, mins)}
-          onCancel={() => setShowPrepModal(false)}
-        />
-      )}
 
       <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all duration-300
         ${isNew     ? "border-lime-400 ring-2 ring-lime-400/30 shadow-lime-100 shadow-md" : ""}
-        ${isLate    ? "border-red-300" : ""}
+        ${isOverdue ? "border-red-300" : ""}
         ${isReady   ? "border-lime-300 ring-1 ring-lime-300/40" : ""}
         ${isCollected ? "opacity-70" : ""}
-        ${!isNew && !isLate && !isReady && !isCollected ? "border-gray-100 hover:shadow-md hover:-translate-y-0.5" : ""}
+        ${!isNew && !isOverdue && !isReady && !isCollected ? "border-gray-100 hover:shadow-md hover:-translate-y-0.5" : ""}
       `}>
 
         {/* ── Ribbon ── */}
@@ -209,9 +166,16 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             🔔 NEW ORDER
           </div>
         )}
-        {isLate && !isNew && (
+        {isOverdue && !isNew && (
           <div className="bg-red-500 text-white text-xs font-bold text-center py-1">
-            ⚠️ DELAYED — {elapsed} min ago
+            ⚠️ OVERDUE — {countdown.mins === 0 && countdown.sec === 0
+              ? `${Math.abs(Math.floor((Date.now() - new Date(localOrder.estimated_ready_iso)) / 60000))} min past ETA`
+              : "past estimated time"}
+          </div>
+        )}
+        {isPending && !isNew && (
+          <div className="bg-blue-500 text-white text-xs font-bold text-center py-1">
+            ⏳ PENDING — waiting for acceptance
           </div>
         )}
         {isReady && (
@@ -228,7 +192,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
                 <p className="font-black text-zinc-900 text-base">#{code}</p>
                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${style.pill}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                  {localOrder.status}
+                  {isPending ? "Pending" : localOrder.status}
                 </span>
               </div>
               <p className="text-xs text-gray-400 mt-0.5">
@@ -237,8 +201,8 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
               </p>
             </div>
 
-            {/* ETA countdown */}
-            {ACTIVE.includes(localOrder.status) && !isReady && (
+            {/* ETA countdown — only show after order has been accepted */}
+            {hasEta && !isReady && (
               <div className={`text-right flex-shrink-0 ${countdown.expired ? "text-red-500" : "text-zinc-900"}`}>
                 <p className="text-xs text-gray-400">Ready by</p>
                 <p className="font-black text-sm tabular-nums">
@@ -328,22 +292,52 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             </div>
           )}
 
-          {/* ── Action buttons ── */}
+          {/* ── Action buttons — Simplified 2-button flow ── */}
           <div className="flex gap-2">
-            {nextStatus && !isCollected && (
+            {/* Pending → Accept Order (opens prep modal → sets Preparing) */}
+            {isPending && (
               <button
-                onClick={handleAdvance}
+                onClick={handleAcceptOrder}
                 disabled={loading}
-                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
                   disabled:opacity-50 flex items-center justify-center gap-2
-                  ${isReady
-                    ? "bg-zinc-800 hover:bg-zinc-700 text-white"
-                    : "bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
-                  }`}
+                  bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
               >
                 {loading
                   ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  : isReady ? "✓ Mark Collected" : `→ ${nextStatus}`
+                  : "✓ Accept Order"
+                }
+              </button>
+            )}
+
+            {/* Preparing / Almost Ready → Ready for Pickup */}
+            {isPreparing && (
+              <button
+                onClick={handleReadyForPickup}
+                disabled={loading}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                  disabled:opacity-50 flex items-center justify-center gap-2
+                  bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
+              >
+                {loading
+                  ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  : "🍽️ Ready for Pickup"
+                }
+              </button>
+            )}
+
+            {/* Ready → Mark Collected */}
+            {isReady && (
+              <button
+                onClick={handleCollected}
+                disabled={loading}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                  disabled:opacity-50 flex items-center justify-center gap-2
+                  bg-zinc-800 hover:bg-zinc-700 text-white"
+              >
+                {loading
+                  ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                  : "✓ Mark Collected"
                 }
               </button>
             )}
@@ -351,7 +345,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             {/* Cancel (active non-ready orders) */}
             {ACTIVE.includes(localOrder.status) && !isReady && (
               <button
-                onClick={() => doAdvance("Cancelled", null)}
+                onClick={handleCancel}
                 disabled={loading}
                 className="px-4 py-3 rounded-xl bg-gray-100 hover:bg-red-100
                            text-gray-400 hover:text-red-500 font-bold text-sm transition-all"

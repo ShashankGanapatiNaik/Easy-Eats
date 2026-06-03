@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from beanie.operators import NotIn
 
 from app.models.order import Order, OrderStatus
@@ -200,24 +200,21 @@ async def place_order(
         15
     )
 
-    now = datetime.now()
+    now_utc = datetime.utcnow()
+    now_local = datetime.now()
 
-    ready_time = (
-        now +
-        timedelta(
-            minutes=prep_min
-        )
-    )
+    ready_time_utc = now_utc + timedelta(minutes=prep_min)
+    ready_time_local = now_local + timedelta(minutes=prep_min)
 
-    slot_start = (
-        now +
+    slot_start_local = (
+        now_local +
         timedelta(
             minutes=(active_orders // 10) * 5
         )
     )
 
-    slot_end = (
-        slot_start +
+    slot_end_local = (
+        slot_start_local +
         timedelta(minutes=5)
     )
 
@@ -242,17 +239,21 @@ async def place_order(
 
         status=OrderStatus.placed,
 
+        placed_at=now_utc,
+
+        updated_at=now_utc,
+
         predicted_prep_min=prep_min,
 
         estimated_ready_time=
-            ready_time.strftime("%H:%M"),
+            ready_time_local.strftime("%H:%M"),
 
         estimated_ready_iso=
-            ready_time.isoformat(),
+            ready_time_utc.replace(tzinfo=timezone.utc).isoformat(),
 
         pickup_slot=
-            f"{slot_start.strftime('%H:%M')} – "
-            f"{slot_end.strftime('%H:%M')}",
+            f"{slot_start_local.strftime('%H:%M')} – "
+            f"{slot_end_local.strftime('%H:%M')}",
 
         active_orders_at_placement=
             active_orders,
@@ -355,7 +356,7 @@ async def get_my_orders(current_user: User = Depends(get_current_user)):
             "id": str(o.id),
             "stall_id": str(o.stall_id),
             "stall_name": stall.name if stall else "Unknown Stall",
-            "placed_at": o.placed_at.isoformat(),
+            "placed_at": o.placed_at.replace(tzinfo=timezone.utc).isoformat(),
             "status": o.status,
             "items": o.items,
             "total": o.total,
@@ -394,8 +395,8 @@ async def get_stall_orders(stall_id: str, current_user: User = Depends(get_curre
             "subtotal": o.subtotal,
             "total": o.total,
             "status": o.status,
-            "placed_at": o.placed_at.isoformat(),
-            "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+            "placed_at": o.placed_at.replace(tzinfo=timezone.utc).isoformat(),
+            "estimated_ready_iso": prediction["estimated_ready_iso"],
             "predicted_prep_min": o.predicted_prep_min,
             "estimated_ready_time": prediction["eta_ready_time"],
             "pickup_slot": o.pickup_slot,
@@ -432,7 +433,7 @@ async def get_order_tracking(id: str, current_user: User = Depends(get_current_u
         "total": order.total,
         "items": order.items,
         "stall_name": stall.name if stall else "Unknown Stall",
-        "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "estimated_ready_iso": prediction["estimated_ready_iso"],
         "predicted_prep_min": order.predicted_prep_min,
         "ai_prediction": {
             "confidence_range": prediction["confidence_range"],
@@ -452,7 +453,7 @@ async def get_order_tracking(id: str, current_user: User = Depends(get_current_u
 # ADVANCE STATUS  (with real-time Socket.IO notification)
 # ─────────────────────────────────────────────────────────────────────────────
 @router.put("/{id}/status")
-async def update_order_status(id: str, status: OrderStatus, current_user: User = Depends(get_current_user)):
+async def update_order_status(id: str, status: OrderStatus, prep_time: Optional[int] = None, current_user: User = Depends(get_current_user)):
     order = await Order.get(ObjectId(id))
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -470,14 +471,30 @@ async def update_order_status(id: str, status: OrderStatus, current_user: User =
     if status == OrderStatus.collected:
         order.collected_at = datetime.utcnow()
 
-    # ── Status-aware ETA recalculation ───────────────────────────────────────
+    # ── ETA calculation ──────────────────────────────────────────────────────
+    # If the kitchen sends a prep_time (minutes), use it directly.
+    # Otherwise fall back to the order's predicted prep min or the hardcoded ETA_BY_STATUS table.
     remaining_min = 0
-    if status in ETA_BY_STATUS:
+    if prep_time and prep_time > 0:
+        local_ready = datetime.now() + timedelta(minutes=prep_time)
+        utc_ready = datetime.utcnow() + timedelta(minutes=prep_time)
+        order.estimated_ready_time = local_ready.strftime("%H:%M")
+        order.estimated_ready_iso  = utc_ready.replace(tzinfo=timezone.utc).isoformat()
+        order.predicted_prep_min   = prep_time
+        remaining_min = prep_time
+    elif status == OrderStatus.preparing and order.predicted_prep_min and order.predicted_prep_min > 0:
+        local_ready = datetime.now() + timedelta(minutes=order.predicted_prep_min)
+        utc_ready = datetime.utcnow() + timedelta(minutes=order.predicted_prep_min)
+        order.estimated_ready_time = local_ready.strftime("%H:%M")
+        order.estimated_ready_iso  = utc_ready.replace(tzinfo=timezone.utc).isoformat()
+        remaining_min = order.predicted_prep_min
+    elif status in ETA_BY_STATUS:
         mins = ETA_BY_STATUS[status]
         if mins > 0:
-            ready_time = datetime.now() + timedelta(minutes=mins)
-            order.estimated_ready_time = ready_time.strftime("%H:%M")
-            order.estimated_ready_iso  = ready_time.isoformat()
+            local_ready = datetime.now() + timedelta(minutes=mins)
+            utc_ready = datetime.utcnow() + timedelta(minutes=mins)
+            order.estimated_ready_time = local_ready.strftime("%H:%M")
+            order.estimated_ready_iso  = utc_ready.replace(tzinfo=timezone.utc).isoformat()
             remaining_min = mins
         else:
             # Ready or terminal — clear countdown
@@ -504,7 +521,7 @@ async def update_order_status(id: str, status: OrderStatus, current_user: User =
         "order_id":             str(order.id),
         "status":               order.status,
         "estimated_ready_time": prediction["eta_ready_time"],
-        "estimated_ready_iso":  (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "estimated_ready_iso":  prediction["estimated_ready_iso"],
         "remaining_min":        prediction["remaining_min"],
         "stall_name":           stall.name,
         "ai_prediction": {
@@ -524,7 +541,7 @@ async def update_order_status(id: str, status: OrderStatus, current_user: User =
         "id":                   str(order.id),
         "status":               order.status,
         "estimated_ready_time": prediction["eta_ready_time"],
-        "estimated_ready_iso":  (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
+        "estimated_ready_iso":  prediction["estimated_ready_iso"],
         "remaining_min":        prediction["remaining_min"],
         "ai_prediction":        socket_payload["ai_prediction"]
     }
@@ -619,6 +636,7 @@ async def predict_dynamic_remaining_time(order: Order) -> dict:
             "delay_risk": "None",
             "avg_completion_speed": "0 min",
             "eta_ready_time": order.estimated_ready_time,
+            "estimated_ready_iso": order.estimated_ready_iso or (datetime.utcnow()).replace(tzinfo=timezone.utc).isoformat(),
             "queue_time_min": 0,
             "walking_time_min": 3,
             "leave_recommendation": "Food Ready - Please Collect",
@@ -633,6 +651,7 @@ async def predict_dynamic_remaining_time(order: Order) -> dict:
             "delay_risk": "None",
             "avg_completion_speed": "0 min",
             "eta_ready_time": "--:--",
+            "estimated_ready_iso": order.estimated_ready_iso,
             "queue_time_min": 0,
             "walking_time_min": 3,
             "leave_recommendation": "--",
@@ -764,6 +783,7 @@ async def predict_dynamic_remaining_time(order: Order) -> dict:
         "delay_risk": delay_risk,
         "avg_completion_speed": avg_speed_str,
         "eta_ready_time": eta_ready_time,
+        "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=remaining_min)).replace(tzinfo=timezone.utc).isoformat(),
         # Smart Pickup fields
         "queue_time_min": queue_time_min,
         "walking_time_min": walking_time_min,
