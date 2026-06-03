@@ -225,6 +225,7 @@ function Cart() {
           estimated_ready_time: data.estimated_ready_time,
           pickup_slot:          data.pickup_slot,
           total:                data.total,
+          stall_name:           cart[0]?.stall_name || "",
         },
       });
 

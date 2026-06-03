@@ -55,6 +55,10 @@ class PlaceOrderBody(BaseModel):
 
     special_instructions: Optional[str] = None
 
+    payment_method: Optional[str] = None
+
+    payment_status: Optional[str] = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PLACE ORDER
@@ -417,6 +421,7 @@ async def get_order_tracking(id: str, current_user: User = Depends(get_current_u
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     prediction = await predict_dynamic_remaining_time(order)
+    stall = await Stall.get(order.stall_id)
     
     return {
         "id": str(order.id),
@@ -426,6 +431,7 @@ async def get_order_tracking(id: str, current_user: User = Depends(get_current_u
         "pickup_slot": order.pickup_slot,
         "total": order.total,
         "items": order.items,
+        "stall_name": stall.name if stall else "Unknown Stall",
         "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=prediction["remaining_min"])).isoformat(),
         "predicted_prep_min": order.predicted_prep_min,
         "ai_prediction": {
@@ -461,6 +467,8 @@ async def update_order_status(id: str, status: OrderStatus, current_user: User =
 
     order.status = status
     order.updated_at = datetime.utcnow()
+    if status == OrderStatus.collected:
+        order.collected_at = datetime.utcnow()
 
     # ── Status-aware ETA recalculation ───────────────────────────────────────
     remaining_min = 0
