@@ -42,6 +42,7 @@ export const deleteStall        = (id)          => api.delete(`/stalls/${id}`);
 export const updateStall        = (id, data)    => api.put(`/stalls/${id}`, data);
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
+export const getMenu               = (stallId)        => api.get(`/menu/${stallId}`);
 export const getAvailableMenu      = (stallId)        => api.get(`/menu/${stallId}/available`);
 export const getCategoryItems      = (stallId, cat)   => api.get(`/menu/${stallId}/category/${cat}`);
 export const toggleItemAvailability= (itemId)         => api.put(`/menu/item/${itemId}/toggle`);

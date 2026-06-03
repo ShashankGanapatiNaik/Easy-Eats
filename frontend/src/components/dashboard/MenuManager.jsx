@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  getAvailableMenu, addMenuItem, updateMenuItem,
+  getMenu, addMenuItem, updateMenuItem,
   deleteMenuItem, toggleItemAvailability,
 } from "../../api";
 
@@ -268,7 +268,7 @@ export default function MenuManager({ stallId, categories = [] }) {
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const res = await getAvailableMenu(stallId);
+      const res = await getMenu(stallId);
       setMenu(res.data);
     } catch {}
     finally { setLoading(false); }

@@ -1,6 +1,6 @@
 # backend/app/services/notification_service.py
 """
-Notification service — formats and sends SMS for:
+Notification service — formats and sends email + SMS for:
 1. Order placed confirmation
 2. Food ready for pickup
 Saves to notifications collection and prevents duplicate notifications.
@@ -31,13 +31,10 @@ async def send_order_notification(
     message: str
 ) -> bool:
     """
-    Checks if a notification of notification_type was already sent for order_id.
-    If not, creates a Notification document in DB, sends SMS, and returns success status.
+    Saves a Notification document to DB (always).
+    Sends SMS only if phone is provided.
+    Prevents duplicate notifications.
     """
-    if not phone:
-        logger.warning(f"Skipping notification {notification_type} — no phone number provided")
-        return False
-
     # Check for duplicate
     existing = await Notification.find_one(
         Notification.order_id == order_id,
@@ -47,24 +44,27 @@ async def send_order_notification(
         logger.info(f"Skipped duplicate notification {notification_type} for order {order_id}")
         return False
 
-    # Save to database
+    # Always save to database (populates the in-app notification bell)
     notification = Notification(
         user_id=user_id,
         order_id=order_id,
         type=notification_type,
-        phone=phone,
+        phone=phone or None,
         message=message,
         is_read=False
     )
     await notification.insert()
+    logger.info(f"Saved {notification_type} notification to DB for order {order_id}")
 
-    # Trigger SMS
+    # Send SMS only if phone exists
+    if not phone:
+        logger.info(f"No phone for {notification_type} — skipping SMS, in-app notification saved")
+        return True  # Return True — notification was saved successfully
+
     success = await send_sms(phone, message)
-    
-    # Dev Terminal fallback
     print(f"\n[SMS NOTIFICATION] Sent {notification_type} SMS to {phone} (Status: {'Sent' if success else 'Skipped/Failed'})\nMsg: {message}\n")
     logger.info(f"[SMS NOTIFICATION] Sent {notification_type} SMS to {phone}")
-    
+
     return success
 
 
@@ -75,7 +75,7 @@ async def notify_order_placed(
     stall_name: str,
     prep_min:   int,
 ) -> bool:
-    """Send SMS when student places an order successfully."""
+    """Send in-app notification + SMS + Email when student places an order."""
     code = _pickup_code(order_id)
     msg  = (
         f"Easy Eats 🍔\n\n"
@@ -92,24 +92,28 @@ async def notify_order_placed(
         message=msg
     )
 
-    # Trigger Order Confirmation Email
-    user = await User.get(user_id)
-    if user and user.email:
-        email_body = (
-            f"Hello {user.name},\n\n"
-            f"Your order has been placed successfully.\n\n"
-            f"Restaurant: {stall_name}\n"
-            f"Order ID: #{order_id}\n"
-            f"Pickup Code: {code}\n"
-            f"Estimated Ready Time: {prep_min} mins\n\n"
-            f"Track your order in Easy Eats."
-        )
-        await send_email(
-            to_email=user.email,
-            subject="Your Easy Eats Order is Confirmed 🍔",
-            body=email_body,
-            html_body=get_order_placed_html(user.name, stall_name, order_id, prep_min)
-        )
+    # ── Always send Order Confirmation Email (independent of phone) ──────────
+    try:
+        user = await User.get(user_id)
+        if user and user.email:
+            email_body = (
+                f"Hello {user.name},\n\n"
+                f"Your order has been placed successfully.\n\n"
+                f"Restaurant: {stall_name}\n"
+                f"Order ID: #{order_id}\n"
+                f"Pickup Code: {code}\n"
+                f"Estimated Ready Time: {prep_min} mins\n\n"
+                f"Track your order in Easy Eats."
+            )
+            await send_email(
+                to_email=user.email,
+                subject="Your Easy Eats Order is Confirmed 🍔",
+                body=email_body,
+                html_body=get_order_placed_html(user.name, stall_name, order_id, prep_min)
+            )
+            logger.info(f"Order placed email sent to {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send order placed email: {e}")
 
     return success
 
@@ -120,7 +124,7 @@ async def notify_order_ready(
     order_id:   str,
     stall_name: str,
 ) -> bool:
-    """Send SMS when kitchen marks order as Ready."""
+    """Send in-app notification + SMS + Email when kitchen marks order as Ready."""
     code = _pickup_code(order_id)
     msg  = (
         f"Easy Eats 🍔\n\n"
@@ -136,19 +140,23 @@ async def notify_order_ready(
         message=msg
     )
 
-    # Trigger Food Ready Email
-    user = await User.get(user_id)
-    if user and user.email:
-        email_body = (
-            f"Your order from {stall_name} is READY.\n\n"
-            f"Pickup Code: {code}\n\n"
-            f"Please show this code at the counter."
-        )
-        await send_email(
-            to_email=user.email,
-            subject="Your Food is Ready for Pickup 🍟",
-            body=email_body,
-            html_body=get_food_ready_html(stall_name, order_id)
-        )
+    # ── Always send Food Ready Email (independent of phone) ──────────────────
+    try:
+        user = await User.get(user_id)
+        if user and user.email:
+            email_body = (
+                f"Your order from {stall_name} is READY.\n\n"
+                f"Pickup Code: {code}\n\n"
+                f"Please show this code at the counter."
+            )
+            await send_email(
+                to_email=user.email,
+                subject="Your Food is Ready for Pickup 🍟",
+                body=email_body,
+                html_body=get_food_ready_html(stall_name, order_id)
+            )
+            logger.info(f"Food ready email sent to {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send food ready email: {e}")
 
     return success

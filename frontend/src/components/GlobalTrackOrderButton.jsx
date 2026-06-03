@@ -34,6 +34,7 @@ export default function GlobalTrackOrderButton() {
   const [detail,  setDetail]  = useState(null);   // /track data with remaining_min
   const [visible, setVisible] = useState(false);  // animate-in trigger
   const [pulse,   setPulse]   = useState(false);  // pulse ring (Ready)
+  const [modalData, setModalData] = useState(null); // popup status modal data
   const prevStatus = useRef(null);
 
   /* ── Hide on tracker page & kitchen/admin ─────────────────────────────── */
@@ -88,6 +89,18 @@ export default function GlobalTrackOrderButton() {
     (data) => {
       // Update detail with socket payload
       setDetail((prev) => ({ ...(prev || {}), ...data }));
+
+      // Show popup dialogue if status changed
+      if (prevStatus.current && prevStatus.current !== data.status) {
+        setModalData({
+          orderId: data.order_id || order?.id,
+          status: data.status,
+          stallName: data.stall_name || order?.stall_name || "Restaurant",
+          pickupCode: (data.order_id || order?.id || "").slice(-4).toUpperCase(),
+          remainingMin: data.remaining_min
+        });
+      }
+
       // Check if order became non-active
       if (!ACTIVE_STATUSES.has(data.status)) {
         setOrder(null);
@@ -115,7 +128,68 @@ export default function GlobalTrackOrderButton() {
     return () => clearTimeout(t);
   }, [pulse]);
 
-  if (!visible || !order) return null;
+  const renderStatusModal = () => {
+    if (!modalData) return null;
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm modal-overlay-anim">
+        <div className="bg-white dark:bg-zinc-900 w-full max-w-md mx-4 rounded-3xl shadow-2xl p-6 border border-gray-100 dark:border-zinc-800 modal-card-anim text-zinc-900 dark:text-white">
+          <div className="text-center">
+            <span className="text-5xl block mb-4">
+              {modalData.status === "Ready" ? "🎉" 
+                : modalData.status === "Almost Ready" ? "🔔"
+                : modalData.status === "Preparing" ? "👨‍🍳"
+                : modalData.status === "Accepted" ? "✅"
+                : "🧾"}
+            </span>
+            <h3 className="text-xl font-extrabold tracking-tight">
+              {modalData.status === "Ready" ? "Your Food is Ready!" 
+                : modalData.status === "Almost Ready" ? "Almost Ready!"
+                : `Order Status: ${modalData.status}`}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-2">
+              Stall: <span className="font-bold text-zinc-900 dark:text-white">{modalData.stallName}</span>
+            </p>
+
+            {modalData.status === "Ready" ? (
+              <div className="my-6 bg-lime-50 dark:bg-lime-950/30 border-2 border-dashed border-lime-500 rounded-2xl p-4">
+                <p className="text-[10px] text-lime-600 dark:text-lime-400 font-bold uppercase tracking-wider">Pickup Pass Code</p>
+                <p className="text-4xl font-black text-lime-600 dark:text-lime-400 mt-1 tracking-widest">{modalData.pickupCode}</p>
+                <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-2">Show this code at the counter to collect your food.</p>
+              </div>
+            ) : (
+              <div className="my-6 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl p-4">
+                <p className="text-xs text-gray-500 dark:text-zinc-400 font-semibold">Estimated Preparation Time</p>
+                <p className="text-3xl font-black mt-1 text-zinc-800 dark:text-white">
+                  {modalData.remainingMin != null ? `${modalData.remainingMin} mins` : "Calculating..."}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setModalData(null)}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-2xl font-bold text-sm transition-all text-zinc-800 dark:text-zinc-200"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => {
+                  const orderId = modalData.orderId;
+                  setModalData(null);
+                  navigate(`/track/${orderId}`);
+                }}
+                className="flex-1 py-3 bg-lime-500 hover:bg-lime-600 text-zinc-950 rounded-2xl font-bold text-sm shadow-md shadow-lime-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Track Live 📍
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (!visible || !order) return renderStatusModal();
 
   const meta      = STATUS_META[order.status] || STATUS_META["Placed"];
   const isReady   = order.status === "Ready";
@@ -127,6 +201,17 @@ export default function GlobalTrackOrderButton() {
   return (
     <>
       <style>{`
+        @keyframes modalFadeIn {
+          from { opacity: 0; backdrop-filter: blur(0px); }
+          to   { opacity: 1; backdrop-filter: blur(8px); }
+        }
+        @keyframes modalScaleUp {
+          from { transform: scale(0.9); opacity: 0; }
+          to   { transform: scale(1); opacity: 1; }
+        }
+        .modal-overlay-anim { animation: modalFadeIn 0.25s ease forwards; }
+        .modal-card-anim { animation: modalScaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
         @keyframes trackPulse {
           0%,100% { transform: scale(1); opacity: 0.6; }
           50%      { transform: scale(1.5); opacity: 0; }
@@ -258,6 +343,7 @@ export default function GlobalTrackOrderButton() {
           TRACK
         </div>
       </div>
+      {renderStatusModal()}
     </>
   );
 }

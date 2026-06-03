@@ -290,24 +290,26 @@ async def place_order(
     await broadcast_queue_density(stall.id)
 
     # ─────────────────────────────────────────────────────────
-    # SMS NOTIFICATION
+    # NOTIFICATIONS — always trigger (email + in-app bell)
+    # SMS is sent internally only if phone exists
     # ─────────────────────────────────────────────────────────
-    sms_sent = False
+    sms_sent = await notify_order_placed(
+        user_id=current_user.id,
+        phone=current_user.phone or "",
+        order_id=str(order.id),
+        stall_name=stall.name,
+        prep_min=prep_min,
+    )
 
-    if current_user.phone:
-
-        sms_sent = await notify_order_placed(
-
-            user_id=current_user.id,
-
-            phone=current_user.phone,
-
-            order_id=str(order.id),
-
-            stall_name=stall.name,
-
-            prep_min=prep_min,
-        )
+    # Notify the kitchen dashboard room via Socket.IO of the new order
+    try:
+        await sio.emit("order_status_updated", {
+            "order_id": str(order.id),
+            "status": order.status,
+            "stall_id": str(stall.id),
+        }, room=f"stall_{str(stall.id)}")
+    except Exception as e:
+        logger.error(f"Failed to emit new order socket event: {e}")
 
     # ─────────────────────────────────────────────────────────
     # RESPONSE
