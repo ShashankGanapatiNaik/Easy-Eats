@@ -143,7 +143,7 @@ def get_otp_html(code: str) -> str:
 def get_order_placed_html(customer_name: str, stall_name: str, order_id: str, prep_min: int) -> str:
     """Returns HTML for Order Placed confirmation."""
     code = order_id[-4:].upper()
-    track_url = f"http://localhost:5173/track/{order_id}"
+    track_url = f"{settings.FRONTEND_URL.rstrip('/')}/track/{order_id}"
     return f"""
     <!DOCTYPE html>
     <html>

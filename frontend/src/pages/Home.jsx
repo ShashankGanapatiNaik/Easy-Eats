@@ -76,7 +76,7 @@ export default function Home() {
   const fetchNotifications = async () => {
     if (user.role !== "student") return;
     try {
-      const res = await getNotifications({ unread_only: false });
+      const res = await getNotifications({ unread_only: true });
       const list = res.data || [];
       setNotifs(list);
       
@@ -342,9 +342,10 @@ export default function Home() {
                         <button 
                           onClick={async () => {
                             try {
+                              setNotifs([]);
+                              setUnreadCount(0);
                               await markAllNotificationsRead();
                               localStorage.setItem("last_opened_notif", Date.now().toString());
-                              setUnreadCount(0);
                               fetchNotifications();
                             } catch {}
                           }}

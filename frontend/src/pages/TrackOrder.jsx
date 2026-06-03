@@ -18,6 +18,7 @@ const TOAST_BY_STATUS = {
   Preparing:    { emoji: "🍳", msg: "Kitchen started preparing your food" },
   "Almost Ready": { emoji: "🔔", msg: "Your food is almost ready!" },
   Ready:        { emoji: "🎉", msg: "Your order is ready for pickup!" },
+  Collected:    { emoji: "🍔", msg: "Order collected! Enjoy your meal!" },
 };
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -128,6 +129,16 @@ export default function TrackOrder() {
     }
   }, [order.status]);
 
+  /* ── auto redirect when collected ───────────────────────────────────── */
+  useEffect(() => {
+    if (order.status === "Collected") {
+      const t = setTimeout(() => {
+        navigate("/home");
+      }, 4000);
+      return () => clearTimeout(t);
+    }
+  }, [order.status, navigate]);
+
   /* ── socket hook ────────────────────────────────────────────────────── */
   useOrderSocket(
     id,
@@ -150,6 +161,7 @@ export default function TrackOrder() {
   const progress   = STATUS_STEPS[currentIdx]?.progress ?? 0;
   const isReady    = order.status === "Ready";
   const isCancelled = order.status === "Cancelled";
+  const isCollected = order.status === "Collected";
   const isActive   = !["Collected", "Cancelled"].includes(order.status);
 
   const radius = 45;
@@ -217,8 +229,19 @@ export default function TrackOrder() {
 
       <div className="px-4 pt-5 space-y-4 max-w-md mx-auto">
 
-        {/* ── Cancelled ────────────────────────────────────────────── */}
-        {isCancelled ? (
+        {/* ── Collected / Cancelled ─────────────────────────────────── */}
+        {isCollected ? (
+          <div className="rounded-3xl p-8 text-center" style={{ ...glassCard, border: "1px solid rgba(34,197,94,0.3)", animation: "fadeUp 0.5s ease" }}>
+            <p className="text-5xl mb-3">🍔</p>
+            <h2 className="text-2xl font-bold text-green-400">Order Collected!</h2>
+            <p className="text-gray-400 text-sm mt-2">Thank you for ordering. Enjoy your meal!</p>
+            <button onClick={() => navigate("/home")}
+              className="mt-5 px-6 py-3 rounded-2xl font-bold text-sm text-white"
+              style={{ background: "linear-gradient(135deg, #22c55e, #16a34a)" }}>
+              Back to Home
+            </button>
+          </div>
+        ) : isCancelled ? (
           <div className="rounded-3xl p-8 text-center" style={{ ...glassCard, border: "1px solid rgba(239,68,68,0.3)" }}>
             <p className="text-5xl mb-3">❌</p>
             <h2 className="text-2xl font-bold text-red-400">Order Cancelled</h2>

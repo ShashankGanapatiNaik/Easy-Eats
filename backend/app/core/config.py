@@ -56,8 +56,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://easy-eats-two.vercel.app",
+        "https://easy-eats-sigma.vercel.app",
     ]
+
+    FRONTEND_URL: str = "http://localhost:5173"
 
     class Config:
         env_file = ".env"
