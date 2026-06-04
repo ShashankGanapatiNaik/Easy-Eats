@@ -277,12 +277,21 @@ async def send_otp(body: SendOTPBody):
 
     # Send via Email if provided
     if body.email:
-        await send_email(
+        print(f"OTP GENERATED: {code}")
+        print(f"EMAIL: {body.email}")
+
+        success = await send_email(
             to_email=body.email,
             subject="Easy Eats OTP Verification",
             body=f"Hello from Easy Eats 🍔\n\nYour verification OTP is:\n\n{code}\n\nThis OTP expires in 5 minutes.",
             html_body=get_otp_html(code)
         )
+
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send OTP email"
+            )
     else:
         # Fallback to SMS if no email is provided
         sms_text = f"Easy Eats OTP: {code}"
@@ -358,12 +367,21 @@ async def forgot_password_send(
     await verification.insert()
 
     # Send reset OTP code via Email
-    await send_email(
+    print(f"PASSWORD RESET OTP: {otp}")
+    print(f"EMAIL: {body.email}")
+
+    success = await send_email(
         to_email=body.email,
         subject="Easy Eats OTP Verification",
         body=f"Hello from Easy Eats 🍔\n\nYour verification OTP is:\n\n{otp}\n\nThis OTP expires in 5 minutes.",
         html_body=get_otp_html(otp)
     )
+
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to send reset password email"
+        )
 
     return {
         "message": "OTP generated successfully"
