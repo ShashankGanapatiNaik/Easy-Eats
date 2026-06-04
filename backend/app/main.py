@@ -39,10 +39,10 @@ app.include_router(wallet_router)
 app.include_router(ai_router)
 app.include_router(notifications_router)
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root(): return {"message": "Easy Eats API v2.0 🍔"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health(): return {"status": "ok"}
 
 # ── Socket.IO — wrap FastAPI app with the ASGI socket layer ──────────────────

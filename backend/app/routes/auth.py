@@ -83,6 +83,36 @@ def make_slug(name: str) -> str:
     return re.sub(r"-+", "-", slug).strip("-") or "stall"
 
 
+def validate_and_clean_phone(phone: str) -> str:
+    # Remove spaces, dashes, parentheses
+    cleaned = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "").strip()
+    
+    # Check if it has a country code prefix
+    if cleaned.startswith("+91"):
+        indian_part = cleaned[3:]
+        if not indian_part.isdigit() or len(indian_part) != 10 or not indian_part.startswith(("6", "7", "8", "9")):
+            raise HTTPException(status_code=400, detail="Invalid Indian phone number")
+        return cleaned
+    elif cleaned.startswith("91") and len(cleaned) == 12:
+        indian_part = cleaned[2:]
+        if not indian_part.isdigit() or not indian_part.startswith(("6", "7", "8", "9")):
+            raise HTTPException(status_code=400, detail="Invalid Indian phone number")
+        return "+" + cleaned
+    
+    # If it is a local 10-digit number without country code, assume India (+91)
+    if len(cleaned) == 10 and cleaned.isdigit() and cleaned.startswith(("6", "7", "8", "9")):
+        return "+91" + cleaned
+        
+    # Support other country codes allowed by frontend (+1, +44, +971, etc.)
+    if cleaned.startswith("+"):
+        digits_only = cleaned[1:]
+        if digits_only.isdigit() and 7 <= len(digits_only) <= 15:
+            return cleaned
+            
+    # Fallback/invalid
+    raise HTTPException(status_code=400, detail="Invalid phone number format")
+
+
 # ─────────────────────────────────────────────
 # REGISTER
 # ─────────────────────────────────────────────
@@ -110,23 +140,7 @@ async def register(body: RegisterBody):
                 detail="Phone number is required"
             )
 
-        clean_phone = (
-            body.phone
-            .replace("+91", "")
-            .replace(" ", "")
-            .replace("-", "")
-            .strip()
-        )
-
-        if (
-            not clean_phone.isdigit()
-            or len(clean_phone) != 10
-            or not clean_phone.startswith(("6", "7", "8", "9"))
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid Indian phone number"
-            )
+        body.phone = validate_and_clean_phone(body.phone)
 
         verification = await OTPVerification.find_one(
             OTPVerification.phone == body.phone,
@@ -247,25 +261,8 @@ async def login(body: LoginBody):
 @router.post("/otp/send")
 async def send_otp(body: SendOTPBody):
 
-    phone = body.phone.strip()
-
-    clean_phone = (
-        phone
-        .replace("+91", "")
-        .replace(" ", "")
-        .replace("-", "")
-        .strip()
-    )
-
-    if (
-        not clean_phone.isdigit()
-        or len(clean_phone) != 10
-        or not clean_phone.startswith(("6", "7", "8", "9"))
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Indian phone number"
-        )
+    phone = validate_and_clean_phone(body.phone)
+    body.phone = phone
 
     code = str(random.randint(100000, 999999))
 
