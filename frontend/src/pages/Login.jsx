@@ -58,6 +58,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
+
   useEffect(() => {
     const token = localStorage.getItem("token");
 
@@ -101,7 +102,8 @@ export default function Login() {
   const [stCountryCode, setStCountryCode] = useState("+91");
   const [stPassword, setStPassword] = useState("");
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
-
+  const [showSiPassword, setShowSiPassword] = useState(false);
+  const [showStPassword, setShowStPassword] = useState(false);
   const [soStallName, setSoStallName] = useState("");
   const [soOwnerName, setSoOwnerName] = useState("");
   const [soEmail, setSoEmail] = useState("");
@@ -287,8 +289,32 @@ export default function Login() {
               <form onSubmit={handleSignIn} className="space-y-4">
                 <Input label="Email Address" type="email" value={siEmail}
                   onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required />
-                <Input label="Password" type="password" value={siPassword}
-                  onChange={e => setSiPassword(e.target.value)} placeholder="••••••••" required />
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                    Password
+                  </label>
+
+                  <div className="relative">
+                    <input
+                      type={showSiPassword ? "text" : "password"}
+                      value={siPassword}
+                      onChange={(e) => setSiPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
+      focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
+      placeholder:text-gray-400 bg-gray-50 focus:bg-white"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSiPassword(!showSiPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                    >
+                      {showSiPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
 
                 <button
                   type="button"
@@ -331,7 +357,33 @@ export default function Login() {
                     </div>
                   </div>
 
-                  <Input label="Create Password" type="password" value={stPassword} onChange={e => setStPassword(e.target.value)} placeholder="Min 6 characters" required minLength={6} />
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                      Create Password
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type={showStPassword ? "text" : "password"}
+                        value={stPassword}
+                        onChange={(e) => setStPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        required
+                        minLength={6}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
+      focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
+      placeholder:text-gray-400 bg-gray-50 focus:bg-white"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowStPassword(!showStPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                      >
+                        {showStPassword ? "🙈" : "👁️"}
+                      </button>
+                    </div>
+                  </div>
                   <SubmitBtn loading={loading} label="Create Student Account" />
                 </form>
               ) : null

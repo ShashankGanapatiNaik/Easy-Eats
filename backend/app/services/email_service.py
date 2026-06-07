@@ -1,3 +1,39 @@
+# import logging
+# import resend
+# from app.core.config import settings
+
+# logger = logging.getLogger(__name__)
+
+# resend.api_key = settings.RESEND_API_KEY
+
+
+# async def send_email(
+#     to_email: str,
+#     subject: str,
+#     body: str,
+#     html_body: str = None
+# ) -> bool:
+#     """
+#     Sends email using Resend.
+#     """
+#     try:
+#         resend.Emails.send(
+#             {
+#                 "from": settings.MAIL_FROM,
+#                 "to": [to_email],
+#                 "subject": subject,
+#                 "html": html_body if html_body else body,
+#             }
+#         )
+
+#         logger.info(f"Successfully sent email to {to_email}")
+#         return True
+
+#     except Exception as e:
+#         logger.error(f"Failed to send email to {to_email}: {e}")
+#         return False
+
+
 # backend/app/services/email_service.py
 import logging
 from app.core.config import settings

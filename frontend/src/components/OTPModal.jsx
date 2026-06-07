@@ -8,12 +8,16 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
 
   const inputRefs = useRef([]);
+  const otpSentRef = useRef(false);
 
   // Trigger send on open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !otpSentRef.current) {
+      otpSentRef.current = true;
+
       setOtp(["", "", "", "", "", ""]);
       setTimer(60);
       setError("");
@@ -24,6 +28,10 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
       }, 100);
 
       handleSendOtp(false);
+    }
+
+    if (!isOpen) {
+      otpSentRef.current = false;
     }
   }, [isOpen]);
 
@@ -46,7 +54,7 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
 
   const handleOtpChange = (value, index) => {
     if (!/^\d*$/.test(value)) return; // Allow only numbers
-    
+
     const newOtp = [...otp];
     newOtp[index] = value.slice(-1); // Only keep the last character typed
     setOtp(newOtp);
@@ -71,18 +79,33 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
     return `${clean.slice(0, 3)} ****** ${clean.slice(-4)}`;
   };
 
+
+
   const handleSendOtp = async (isResend = false) => {
     if (isResend) setResending(true);
+
     setError("");
     setSuccess("");
+
     try {
-      await sendOtp(phone, email);
-      setSuccess("OTP sent successfully to your email!");
+      const res = await sendOtp(phone, email);
+      //console.log("FRONTEND RECEIVED:", res.data);
+
+      setGeneratedOtp(res.data.otp);
+
+      setSuccess("OTP generated successfully!");
       setTimer(60);
       setOtp(["", "", "", "", "", ""]);
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 100);
+
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to send verification OTP.");
+      setError(
+        err.response?.data?.detail ||
+        "Failed to send verification OTP."
+      );
     } finally {
       setResending(false);
     }
@@ -114,12 +137,12 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div 
+      <div
         className="relative bg-white/95 backdrop-blur-md border border-white/20 shadow-2xl rounded-3xl p-6 max-w-sm w-full animate-slide-up text-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100/80 hover:bg-gray-200 text-gray-500 font-bold flex items-center justify-center transition-all"
         >
           ✕
@@ -133,6 +156,12 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
         <p className="text-sm text-gray-500 mb-6">
           OTP sent to <span className="font-semibold text-zinc-700">{maskPhone(phone)}</span>
         </p>
+
+        {generatedOtp && (
+          <div className="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-xl font-bold">
+            🔑 Test OTP: {generatedOtp}
+          </div>
+        )}
 
         {/* OTP Input Boxes */}
         <div className="flex justify-between gap-2 mb-6">
@@ -181,15 +210,14 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
               <span className="text-red-500 font-bold">Code expired</span>
             )}
           </div>
-          
+
           <button
             onClick={() => handleSendOtp(true)}
             disabled={timer > 0 || resending}
-            className={`font-bold hover:underline transition-colors ${
-              timer > 0 
-                ? "text-gray-300 cursor-not-allowed" 
-                : "text-lime-600 hover:text-lime-700"
-            }`}
+            className={`font-bold hover:underline transition-colors ${timer > 0
+              ? "text-gray-300 cursor-not-allowed"
+              : "text-lime-600 hover:text-lime-700"
+              }`}
           >
             {resending ? "Resending..." : timer > 0 ? `Resend (${timer}s)` : "Resend OTP"}
           </button>

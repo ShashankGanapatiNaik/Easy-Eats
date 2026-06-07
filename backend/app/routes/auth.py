@@ -287,21 +287,23 @@ async def send_otp(body: SendOTPBody):
             html_body=get_otp_html(code)
         )
 
+        # For testing, don't fail if email sending fails
         if not success:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to send OTP email"
-            )
+            logger.warning("Email sending failed, returning OTP for testing.")
     else:
-        # Fallback to SMS if no email is provided
-        sms_text = f"Easy Eats OTP: {code}"
-        await send_sms(phone, sms_text)
+        try:
+            sms_text = f"Easy Eats OTP: {code}"
+            await send_sms(phone, sms_text)
+        except Exception:
+            pass
 
+    # Return OTP to frontend for testing
+    # print("RETURNING OTP:", code)
     return {
-        "message": "OTP sent successfully",
-        "phone": phone
+        "message": "OTP generated successfully",
+        "phone": phone,
+        "otp": code
     }
-
 
 @router.post("/otp/verify")
 async def verify_otp(body: VerifyOTPBody):
