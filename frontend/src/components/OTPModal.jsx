@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { sendOtp, verifyOtp } from "../api";
 
 export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
@@ -13,12 +13,43 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
   const inputRefs = useRef([]);
   const otpSentRef = useRef(false);
 
+  // ── Define handleSendOtp BEFORE the useEffect that calls it ──────────────────
+  // (const is not hoisted; defining it after caused it to be undefined on mount)
+  const handleSendOtp = useCallback(async (isResend = false) => {
+    if (isResend) setResending(true);
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await sendOtp(phone, email);
+
+      setGeneratedOtp(res.data.otp);
+      setSuccess("OTP generated successfully!");
+      setTimer(60);
+      setOtp(["", "", "", "", "", ""]);
+
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 100);
+
+    } catch (err) {
+      setError(
+        err.response?.data?.detail ||
+        "Failed to send verification OTP."
+      );
+    } finally {
+      setResending(false);
+    }
+  }, [phone, email]);
+
   // Trigger send on open
   useEffect(() => {
     if (isOpen && !otpSentRef.current) {
       otpSentRef.current = true;
 
       setOtp(["", "", "", "", "", ""]);
+      setGeneratedOtp("");
       setTimer(60);
       setError("");
       setSuccess("");
@@ -33,7 +64,7 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
     if (!isOpen) {
       otpSentRef.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, handleSendOtp]);
 
   // Countdown timer
   useEffect(() => {
@@ -77,38 +108,6 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
     const clean = ph.replace(/\s+/g, "");
     if (clean.length < 4) return ph;
     return `${clean.slice(0, 3)} ****** ${clean.slice(-4)}`;
-  };
-
-
-
-  const handleSendOtp = async (isResend = false) => {
-    if (isResend) setResending(true);
-
-    setError("");
-    setSuccess("");
-
-    try {
-      const res = await sendOtp(phone, email);
-      //console.log("FRONTEND RECEIVED:", res.data);
-
-      setGeneratedOtp(res.data.otp);
-
-      setSuccess("OTP generated successfully!");
-      setTimer(60);
-      setOtp(["", "", "", "", "", ""]);
-
-      setTimeout(() => {
-        inputRefs.current[0]?.focus();
-      }, 100);
-
-    } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-        "Failed to send verification OTP."
-      );
-    } finally {
-      setResending(false);
-    }
   };
 
   const handleVerify = async () => {
@@ -173,7 +172,7 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
             >
               {generatedOtp}
             </button>
-            <p className="text-xs text-amber-600 mt-1">👆 Click to auto-fill</p>
+            {/* <p className="text-xs text-amber-600 mt-1">👆 Click to auto-fill</p> */}
           </div>
         )}
 
