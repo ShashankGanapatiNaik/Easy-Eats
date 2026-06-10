@@ -158,8 +158,22 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
         </p>
 
         {generatedOtp && (
-          <div className="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-xl font-bold">
-            🔑 Test OTP: {generatedOtp}
+          <div className="mb-4 bg-amber-50 border-2 border-amber-400 text-amber-900 px-4 py-3 rounded-xl text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">⚠️ Test Mode — Email not sent</p>
+            <p className="text-sm mb-1">Your OTP is:</p>
+            <button
+              type="button"
+              onClick={() => {
+                const digits = generatedOtp.split("");
+                setOtp(digits);
+                setTimeout(() => inputRefs.current[5]?.focus(), 50);
+              }}
+              className="text-2xl font-black tracking-widest text-amber-800 hover:text-amber-600 cursor-pointer underline decoration-dotted transition-colors"
+              title="Click to auto-fill"
+            >
+              {generatedOtp}
+            </button>
+            <p className="text-xs text-amber-600 mt-1">👆 Click to auto-fill</p>
           </div>
         )}
 
