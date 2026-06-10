@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { login, register, sendOtp } from "../api";
 import logo from "../assets/logo.svg";
 import OTPModal from "../components/OTPModal";
@@ -286,46 +286,49 @@ export default function Login() {
           <div className="animate-fade-in-up">
             {!isRegister ? (
               /* Sign In Form (Shared for all roles conceptually, but we can pre-fill or guide) */
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <Input label="Email Address" type="email" value={siEmail}
-                  onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required />
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                    Password
-                  </label>
+              <>
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <Input label="Email Address" type="email" value={siEmail}
+                    onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required />
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                      Password
+                    </label>
 
-                  <div className="relative">
-                    <input
-                      type={showSiPassword ? "text" : "password"}
-                      value={siPassword}
-                      onChange={(e) => setSiPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
-      focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
-      placeholder:text-gray-400 bg-gray-50 focus:bg-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showSiPassword ? "text" : "password"}
+                        value={siPassword}
+                        onChange={(e) => setSiPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
+    focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
+    placeholder:text-gray-400 bg-gray-50 focus:bg-white"
+                      />
 
-                    <button
-                      type="button"
-                      onClick={() => setShowSiPassword(!showSiPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                    >
-                      {showSiPassword ? "🙈" : "👁️"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSiPassword(!showSiPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                      >
+                        {showSiPassword ? "🙈" : "👁️"}
+                      </button>
+                    </div>
                   </div>
+
+                  <SubmitBtn loading={loading} label="Sign In" />
+                </form>
+
+                <div className="mt-3 text-right">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-bold text-lime-600 hover:text-lime-700"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/forgot-password")}
-                  className="text-sm font-bold text-lime-600 hover:text-lime-700"
-                >
-                  Forgot password?
-                </button>
-
-                <SubmitBtn loading={loading} label="Sign In" />
-              </form>
+              </>
             ) : (
               /* Register Forms */
               role === "student" ? (

@@ -17,13 +17,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      const hadToken = !!localStorage.getItem("token");
+
       // Clear invalid/expired token and user data to stop infinite 401 loops
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       localStorage.removeItem("user_data");
-      
-      // Redirect to login if not already on the login page
-      if (window.location.pathname !== "/") {
+
+      // Only redirect to login if the user was previously authenticated.
+      // Don't redirect on public pages (forgot-password, etc.) where no
+      // token is expected — otherwise global components that call the API
+      // would kick the user off those pages.
+      if (hadToken && window.location.pathname !== "/") {
         window.location.href = "/";
       }
     }

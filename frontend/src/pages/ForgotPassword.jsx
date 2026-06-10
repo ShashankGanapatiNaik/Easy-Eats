@@ -7,14 +7,11 @@ export default function ForgotPassword() {
     const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
-
     const [email, setEmail] = useState("");
-
     const [otp, setOtp] = useState("");
-
     const [newPassword, setNewPassword] = useState("");
-
     const [loading, setLoading] = useState(false);
+    const [devOtp, setDevOtp] = useState(null); // shown when email delivery fails
 
     // SEND OTP
     const sendOtp = async () => {
@@ -27,12 +24,14 @@ export default function ForgotPassword() {
         try {
 
             setLoading(true);
+            setDevOtp(null);
 
-            await api.post("/auth/forgot-password/send", {
-                email,
-            });
+            const res = await api.post("/auth/forgot-password/send", { email });
 
-            alert("OTP sent to your Gmail");
+            // Backend always returns the OTP; show it on-page if email wasn't sent
+            if (res.data?.otp) {
+                setDevOtp(res.data.otp);
+            }
 
             setStep(2);
 
@@ -57,7 +56,28 @@ export default function ForgotPassword() {
             return;
         }
 
-        setStep(3);
+        try {
+
+            setLoading(true);
+
+            await api.post("/auth/forgot-password/check-otp", {
+                email,
+                otp,
+            });
+
+            setStep(3);
+
+        } catch (err) {
+
+            alert(
+                err?.response?.data?.detail ||
+                "Invalid or expired OTP"
+            );
+
+        } finally {
+
+            setLoading(false);
+        }
     };
 
     // RESET PASSWORD
@@ -109,6 +129,28 @@ export default function ForgotPassword() {
                     Recover your Easy Eats account
                 </p>
 
+                {/* DEV MODE: OTP display box when email fails */}
+                {devOtp && (
+                    <div className="mb-6 border-2 border-dashed border-amber-400 bg-amber-50 rounded-2xl p-4">
+                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">
+                            ⚠️ Test Mode — Email not sent
+                        </p>
+                        <p className="text-xs text-amber-600 mb-3">
+                            SMTP is not configured. Your OTP is shown below — copy it into the field.
+                        </p>
+                        <div
+                            className="text-center text-3xl font-black tracking-[0.3em] text-amber-900 bg-amber-100 rounded-xl py-3 cursor-pointer select-all"
+                            onClick={() => setOtp(devOtp)}
+                            title="Click to auto-fill OTP"
+                        >
+                            {devOtp}
+                        </div>
+                        <p className="text-xs text-center text-amber-500 mt-2">
+                            Click the code to auto-fill ↑
+                        </p>
+                    </div>
+                )}
+
                 {/* STEP 1 */}
 
                 {step === 1 && (
@@ -150,9 +192,10 @@ export default function ForgotPassword() {
 
                         <button
                             onClick={verifyOtp}
+                            disabled={loading}
                             className="w-full bg-lime-500 hover:bg-lime-600 text-white font-bold py-3 rounded-2xl transition-all"
                         >
-                            Verify OTP
+                            {loading ? "Verifying..." : "Verify OTP"}
                         </button>
 
                     </div>

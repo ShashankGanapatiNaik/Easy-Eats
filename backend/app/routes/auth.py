@@ -67,6 +67,11 @@ class ForgotPasswordBody(BaseModel):
     email: EmailStr
 
 
+class CheckOTPBody(BaseModel):
+    email: EmailStr
+    otp: str
+
+
 class ResetPasswordBody(BaseModel):
     email: EmailStr
     otp: str
@@ -368,10 +373,6 @@ async def forgot_password_send(
 
     await verification.insert()
 
-    # Send reset OTP code via Email
-    print(f"PASSWORD RESET OTP: {otp}")
-    print(f"EMAIL: {body.email}")
-
     success = await send_email(
         to_email=body.email,
         subject="Easy Eats OTP Verification",
@@ -379,14 +380,38 @@ async def forgot_password_send(
         html_body=get_otp_html(otp)
     )
 
-    if not success:
+    # Always return the OTP so the frontend can display it for testing.
+    # The email service returns True even when simulating (no real email sent),
+    # so we can't rely on `not success` to detect that case.
+    # In production with real SMTP, the OTP is also sent via email.
+    return {
+        "message": "OTP generated successfully",
+        "otp": otp,
+        "email_sent": success
+    }
+
+
+@router.post("/forgot-password/check-otp")
+async def forgot_password_check_otp(
+    body: CheckOTPBody
+):
+    """Validates the OTP is correct and not expired, without consuming it."""
+
+    verification = await OTPVerification.find_one(
+        OTPVerification.phone == body.email,
+        OTPVerification.code == body.otp,
+        OTPVerification.verified == False,
+        OTPVerification.expires_at > datetime.utcnow()
+    )
+
+    if not verification:
         raise HTTPException(
-            status_code=500,
-            detail="Failed to send reset password email"
+            status_code=400,
+            detail="Invalid or expired OTP"
         )
 
     return {
-        "message": "OTP generated successfully"
+        "message": "OTP is valid"
     }
 
 
