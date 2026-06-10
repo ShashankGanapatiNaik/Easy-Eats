@@ -36,6 +36,7 @@
 
 # backend/app/services/email_service.py
 import logging
+import asyncio
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -73,12 +74,19 @@ async def send_email(to_email: str, subject: str, body: str, html_body: str = No
             subtype=MessageType.html if html_body else MessageType.plain
         )
         fm = FastMail(conf)
-        await fm.send_message(message)
+
+        # Timeout after 5 seconds — Render blocks port 587 and the connection
+        # hangs for 30-60s otherwise, causing the whole API request to time out
+        # before we can return the OTP to the frontend.
+        await asyncio.wait_for(fm.send_message(message), timeout=5.0)
+
         logger.info(f"Successfully sent email to {to_email}")
         return True
+    except asyncio.TimeoutError:
+        logger.warning(f"Email to {to_email} timed out after 5s (SMTP port likely blocked on this host)")
+        return False
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
-        # Return True in dev so app flow doesn't crash on invalid SMTP setup
         return False
 
 # ─────────────────────────────────────────────────────────────────────────────
