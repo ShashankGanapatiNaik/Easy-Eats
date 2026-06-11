@@ -771,9 +771,16 @@ export default function Home() {
                         <p className="font-bold text-zinc-900 text-base">₹{order.total}</p>
                         <div className="flex gap-2 items-center">
                           {/* Reorder */}
-                          <button onClick={() => handleReorder(order)}
-                            className="bg-zinc-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 transition-all">
-                            🔄 Reorder
+                          <button
+                            disabled={order.stall_is_open === false}
+                            onClick={() => handleReorder(order)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                              order.stall_is_open !== false
+                                ? "bg-zinc-900 text-white hover:bg-zinc-800"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                            }`}
+                          >
+                            {order.stall_is_open !== false ? "🔄 Reorder" : "🔒 Closed"}
                           </button>
                           {/* Rate — only if collected & not yet reviewed */}
                           {order.status === "Collected" && !order.is_reviewed && (

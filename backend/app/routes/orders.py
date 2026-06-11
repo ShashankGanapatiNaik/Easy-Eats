@@ -358,6 +358,8 @@ async def get_my_orders(current_user: User = Depends(get_current_user)):
             "id": str(o.id),
             "stall_id": str(o.stall_id),
             "stall_name": stall.name if stall else "Unknown Stall",
+            "restaurant_name": stall.name if stall else "Unknown Stall",
+            "stall_is_open": stall.is_open if stall else False,
             "placed_at": o.placed_at.replace(tzinfo=timezone.utc).isoformat(),
             "status": o.status,
             "items": o.items,

@@ -129,8 +129,8 @@ export default function ForgotPassword() {
                     Recover your Easy Eats account
                 </p>
 
-                {/* DEV MODE: OTP display box when email fails */}
-                {devOtp && (
+                {/* DEV MODE: OTP display box — stays visible on steps 2 and 3 */}
+                {devOtp && step >= 2 && (
                     <div className="mb-6 border-2 border-dashed border-amber-400 bg-amber-50 rounded-2xl p-4">
                         <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">
                             ⚠️ Test Mode — Email not sent
@@ -146,7 +146,7 @@ export default function ForgotPassword() {
                             {devOtp}
                         </div>
                         <p className="text-xs text-center text-amber-500 mt-2">
-                            Click the code to auto-fill ↑
+                            {step === 2 ? "Click the code to auto-fill ↑" : "Your verified OTP — keep for reference"}
                         </p>
                     </div>
                 )}

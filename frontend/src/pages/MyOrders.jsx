@@ -435,11 +435,16 @@ function MyOrders() {
                         {/* REORDER */}
 
                         <button
+                          disabled={order.stall_is_open === false}
                           onClick={() => handleReorder(order)}
-                          className="bg-zinc-900 hover:bg-black px-6 py-3 rounded-2xl font-black text-white transition-all"
+                          className={`px-6 py-3 rounded-2xl font-black transition-all ${
+                            order.stall_is_open !== false
+                              ? "bg-zinc-900 hover:bg-black text-white"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          }`}
                         >
 
-                          🔄 Reorder
+                          {order.stall_is_open !== false ? "🔄 Reorder" : "🔒 Closed"}
 
                         </button>
 

@@ -448,6 +448,15 @@ function Restaurant() {
                       SOLD OUT
                     </button>
 
+                  ) : !stall.is_open && !found ? (
+
+                    <button
+                      disabled
+                      className="bg-red-50 text-red-500 border border-red-100 px-5 py-2 rounded-full font-bold text-xs cursor-not-allowed"
+                    >
+                      CLOSED
+                    </button>
+
                   ) : found ? (
 
                     <div className="flex items-center justify-between w-24 bg-zinc-900 text-white px-3 py-2 rounded-full">
@@ -469,9 +478,11 @@ function Restaurant() {
                       </span>
 
                       <button
+                        disabled={!stall.is_open}
                         onClick={() =>
                           increaseQty(item.id)
                         }
+                        className={!stall.is_open ? "opacity-35 cursor-not-allowed text-gray-400 font-bold" : ""}
                       >
 
                         +

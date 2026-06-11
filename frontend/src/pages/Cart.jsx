@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { useCart } from "../context/CartContext";
 import { placeOrder } from "../api";
-import api, { getRecommendations, trackRecommendationClick } from "../api";
+import api, { getRecommendations, trackRecommendationClick, getStall } from "../api";
 
 // Load Razorpay script dynamically
 function loadRazorpay() {
@@ -108,10 +108,28 @@ function Cart() {
   const [error,   setError]   = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [recsLoading, setRecsLoading] = useState(false);
+  const [stall, setStall] = useState(null);
+  const [stallLoading, setStallLoading] = useState(false);
+
+  useEffect(() => {
+    if (!stallId) return;
+    const fetchStallStatus = async () => {
+      setStallLoading(true);
+      try {
+        const res = await getStall(stallId);
+        setStall(res.data);
+      } catch (err) {
+        console.error("Failed to fetch stall status in cart:", err);
+      } finally {
+        setStallLoading(false);
+      }
+    };
+    fetchStallStatus();
+  }, [stallId]);
 
   /* ── Fetch recommendations whenever cart changes ─────────────────────── */
   const fetchRecs = useCallback(async () => {
-    if (!stallId || cart.length === 0) { setRecommendations([]); return; }
+    if (!stallId || cart.length === 0 || (stall && !stall.is_open)) { setRecommendations([]); return; }
     setRecsLoading(true);
     try {
       const cartIds = cart.map((i) => i.id);
@@ -308,7 +326,15 @@ function Cart() {
               <div className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-2 rounded-full flex-shrink-0">
                 <button onClick={() => decreaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base active:scale-90">−</button>
                 <span className="w-5 text-center font-bold text-sm">{item.qty}</span>
-                <button onClick={() => increaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base text-lime-400 active:scale-90">+</button>
+                <button 
+                  disabled={stall && !stall.is_open}
+                  onClick={() => increaseQty(item.id)} 
+                  className={`w-5 h-5 flex items-center justify-center font-bold text-base active:scale-90 ${
+                    stall && !stall.is_open ? "opacity-30 cursor-not-allowed text-gray-400 font-bold" : "text-lime-400"
+                  }`}
+                >
+                  +
+                </button>
               </div>
             </div>
           ))}
@@ -357,6 +383,19 @@ function Cart() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Stall Closed Warning */}
+        {stall && !stall.is_open && (
+          <div className="bg-red-50 border border-red-200 rounded-3xl p-5 text-sm text-red-700 font-semibold flex items-start gap-3 shadow-sm">
+            <span className="text-xl">⚠️</span>
+            <div>
+              <p className="font-bold text-base mb-1">Restaurant is Closed</p>
+              <p className="font-normal text-red-500 text-xs">
+                "{stall.name}" is currently closed and not accepting new orders. Please remove these items or try again later.
+              </p>
             </div>
           </div>
         )}
@@ -412,13 +451,21 @@ function Cart() {
         <div className="max-w-md mx-auto">
           <button
             onClick={handlePayAndOrder}
-            disabled={paying}
-            className="w-full bg-lime-500 hover:bg-lime-600 active:scale-[0.98] disabled:opacity-60 text-zinc-900 py-4 rounded-2xl font-bold text-base shadow-xl shadow-lime-500/20 transition-all flex items-center justify-center gap-3"
+            disabled={paying || (stall && !stall.is_open)}
+            className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-3 ${
+              stall && !stall.is_open
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                : "bg-lime-500 hover:bg-lime-600 active:scale-[0.98] disabled:opacity-60 text-zinc-900 shadow-xl shadow-lime-500/20"
+            }`}
           >
             {paying ? (
               <>
                 <div className="w-5 h-5 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" />
                 Processing…
+              </>
+            ) : stall && !stall.is_open ? (
+              <>
+                🔒 Restaurant Closed
               </>
             ) : (
               <>
@@ -427,7 +474,7 @@ function Cart() {
             )}
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">
-            You'll be redirected to Razorpay to complete payment
+            {stall && !stall.is_open ? "This restaurant is not accepting orders" : "You'll be redirected to Razorpay to complete payment"}
           </p>
         </div>
       </div>

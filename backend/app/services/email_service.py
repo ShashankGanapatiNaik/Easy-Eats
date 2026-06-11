@@ -75,10 +75,10 @@ async def send_email(to_email: str, subject: str, body: str, html_body: str = No
         )
         fm = FastMail(conf)
 
-        # Timeout after 5 seconds — Render blocks port 587 and the connection
-        # hangs for 30-60s otherwise, causing the whole API request to time out
-        # before we can return the OTP to the frontend.
-        await asyncio.wait_for(fm.send_message(message), timeout=5.0)
+        # Timeout after 15 seconds — real Gmail SMTP needs ~5-15s for the TLS
+        # handshake + auth. Render blocks port 587 entirely and hangs for 30-60s,
+        # so 15s cuts that off fast while giving local SMTP enough time to succeed.
+        await asyncio.wait_for(fm.send_message(message), timeout=15.0)
 
         logger.info(f"Successfully sent email to {to_email}")
         return True
