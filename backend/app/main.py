@@ -10,6 +10,7 @@ from app.routes.payments import router as payments_router
 from app.routes.wallet   import router as wallet_router
 from app.routes.ai_order import router as ai_router
 from app.routes.notifications import router as notifications_router
+from app.routes.group_orders import router as group_orders_router
 from app.socket_manager import sio
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ app.include_router(payments_router)
 app.include_router(wallet_router)
 app.include_router(ai_router)
 app.include_router(notifications_router)
+app.include_router(group_orders_router)
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def root(): return {"message": "Easy Eats API v2.0 🍔"}

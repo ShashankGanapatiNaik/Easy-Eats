@@ -18,11 +18,12 @@ async def connect_db():
     from app.models.otp_verification import OTPVerification
     from app.models.notification import Notification
     from app.models.recommendation_analytics import RecommendationAnalytics
+    from app.models.group_session import GroupSession
     from app.routes.wallet    import WalletBalance, WalletTransaction
 
     await init_beanie(
         database=_client[settings.MONGODB_DB_NAME],
-        document_models=[User, Stall, MenuItem, Order, Review, OTPVerification, Notification, WalletBalance, WalletTransaction, RecommendationAnalytics],
+        document_models=[User, Stall, MenuItem, Order, Review, OTPVerification, Notification, WalletBalance, WalletTransaction, RecommendationAnalytics, GroupSession],
     )
     logger.info(f"✅ Connected to MongoDB: {settings.MONGODB_DB_NAME}")
 

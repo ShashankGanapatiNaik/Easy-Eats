@@ -256,12 +256,17 @@ async def search_items_db(
                 stall_id_filter = s.id
                 break
 
-    # Fetch items
-    query_args = [MenuItem.is_deleted == False]
+    # Build open-stall id set so we never surface items from closed stalls
+    open_stall_ids = {str(s.id) for s in all_stalls if s.is_open}
+
+    # Fetch items — only available, non-deleted items
+    query_args = [MenuItem.is_deleted == False, MenuItem.is_available == True]
     if stall_id_filter:
         query_args.append(MenuItem.stall_id == stall_id_filter)
 
     all_items = await MenuItem.find(*query_args).to_list()
+    # Filter to open stalls only
+    all_items = [i for i in all_items if str(i.stall_id) in open_stall_ids]
 
     if not query:
         # Return all (up to 20) when no keyword given
@@ -574,14 +579,19 @@ async def ai_chat(
 
     # ── recommend ─────────────────────────────────────────────────────────────
     if intent == "recommend":
+        all_stalls   = await Stall.find().to_list()
+        smap         = {str(s.id): s.name for s in all_stalls}
+        # Only recommend from OPEN stalls
+        open_sids    = {str(s.id) for s in all_stalls if s.is_open}
+
         popular = await MenuItem.find(
             MenuItem.is_deleted   == False,
             MenuItem.is_available == True,
             MenuItem.is_popular   == True,
-        ).limit(8).to_list()
+        ).to_list()
 
-        all_stalls = await Stall.find().to_list()
-        smap       = {str(s.id): s.name for s in all_stalls}
+        # Filter to open stalls only, then cap at 8
+        popular = [i for i in popular if str(i.stall_id) in open_sids][:8]
         items_data = [item_to_dict(i, smap.get(str(i.stall_id), "")) for i in popular]
 
         return {

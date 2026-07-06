@@ -61,6 +61,25 @@ async def leave_stall(sid, data):
 
 
 @sio.event
+async def join_group(sid, data):
+    """
+    Student group page emits this to join a group cart room.
+    data = { "group_id": "<group_id>" }
+    """
+    group_id = data.get("group_id")
+    if group_id:
+        await sio.enter_room(sid, f"group_{group_id}")
+
+
+@sio.event
+async def leave_group(sid, data):
+    """Student leaves the group cart room."""
+    group_id = data.get("group_id")
+    if group_id:
+        await sio.leave_room(sid, f"group_{group_id}")
+
+
+@sio.event
 async def disconnect(sid):
     """Client disconnected — rooms are cleaned up automatically by python-socketio."""
     pass
