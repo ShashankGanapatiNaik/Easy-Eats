@@ -261,11 +261,11 @@ function Cart() {
   // ── Empty cart ────────────────────────────────────────────────────────────
   if (cart.length === 0) {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-zinc-50 flex flex-col items-center justify-center px-4">
+      <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-zinc-950 flex flex-col items-center justify-center px-4 transition-colors duration-200">
         <div className="text-center">
           <div className="text-6xl mb-4">🛒</div>
-          <h2 className="text-2xl font-bold text-zinc-900 mb-2">Cart is empty</h2>
-          <p className="text-gray-400 mb-8">Add items from a stall to get started.</p>
+          <h2 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Cart is empty</h2>
+          <p className="text-gray-400 dark:text-zinc-500 mb-8">Add items from a stall to get started.</p>
           <button
             onClick={() => navigate("/home")}
             className="bg-lime-500 text-zinc-900 px-8 py-3 rounded-full font-bold hover:bg-lime-600 shadow-md transition-all"
@@ -279,20 +279,20 @@ function Cart() {
 
   // ── Cart ──────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-zinc-50 pb-36">
+    <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-36 transition-colors duration-200">
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-4 sticky top-0 z-20">
+      <div className="bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 px-4 py-4 flex items-center gap-4 sticky top-0 z-20 transition-colors duration-200">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all"
+          className="w-9 h-9 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-zinc-700 active:scale-95 transition-all text-zinc-800 dark:text-zinc-200"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
         </button>
-        <h1 className="text-xl font-bold text-zinc-900">Your Cart</h1>
-        <span className="ml-auto text-sm text-gray-400">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-white">Your Cart</h1>
+        <span className="ml-auto text-sm text-gray-400 dark:text-zinc-500">
           {cart.reduce((s, i) => s + i.qty, 0)} items
         </span>
       </div>
@@ -300,17 +300,17 @@ function Cart() {
       <div className="px-4 mt-5 space-y-4">
 
         {/* Items */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden transition-colors duration-200">
           {cart.map((item, index) => (
             <div
               key={item.id}
-              className={`flex items-center gap-3 p-4 ${index < cart.length - 1 ? "border-b border-gray-50" : ""}`}
+              className={`flex items-center gap-3 p-4 ${index < cart.length - 1 ? "border-b border-gray-50 dark:border-zinc-800" : ""}`}
             >
               {item.image_url && (
                 <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-zinc-900 text-sm truncate">{item.name}</p>
+                <p className="font-bold text-zinc-900 dark:text-white text-sm truncate">{item.name}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <p className="text-sm font-bold text-lime-600">
                     ₹{(item.discounted_price || item.price) * item.qty}
@@ -323,7 +323,7 @@ function Cart() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 bg-zinc-900 text-white px-3 py-2 rounded-full flex-shrink-0">
+              <div className="flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 text-white px-3 py-2 rounded-full flex-shrink-0">
                 <button onClick={() => decreaseQty(item.id)} className="w-5 h-5 flex items-center justify-center font-bold text-base active:scale-90">−</button>
                 <span className="w-5 text-center font-bold text-sm">{item.qty}</span>
                 <button 
@@ -389,11 +389,11 @@ function Cart() {
 
         {/* Stall Closed Warning */}
         {stall && !stall.is_open && (
-          <div className="bg-red-50 border border-red-200 rounded-3xl p-5 text-sm text-red-700 font-semibold flex items-start gap-3 shadow-sm">
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-3xl p-5 text-sm text-red-700 dark:text-red-400 font-semibold flex items-start gap-3 shadow-sm">
             <span className="text-xl">⚠️</span>
             <div>
               <p className="font-bold text-base mb-1">Restaurant is Closed</p>
-              <p className="font-normal text-red-500 text-xs">
+              <p className="font-normal text-red-500 dark:text-red-500 text-xs">
                 "{stall.name}" is currently closed and not accepting new orders. Please remove these items or try again later.
               </p>
             </div>
@@ -401,30 +401,30 @@ function Cart() {
         )}
 
         {/* Special instructions */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-4">
-          <label className="block text-sm font-bold text-zinc-900 mb-2">
-            Special Instructions <span className="font-normal text-gray-400">(optional)</span>
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-4 transition-colors duration-200">
+          <label className="block text-sm font-bold text-zinc-900 dark:text-white mb-2">
+            Special Instructions <span className="font-normal text-gray-400 dark:text-zinc-500">(optional)</span>
           </label>
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
             placeholder="e.g. No onions, extra sauce…"
             rows={2}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-lime-500 resize-none transition-all"
+            className="w-full border border-gray-200 dark:border-zinc-700 dark:bg-zinc-850 dark:text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-lime-500 resize-none transition-all"
           />
         </div>
 
         {/* Bill summary */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-bold text-zinc-900 mb-3">Bill Summary</h3>
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-5 transition-colors duration-200">
+          <h3 className="font-bold text-zinc-900 dark:text-white mb-3">Bill Summary</h3>
           <div className="space-y-1.5">
             {cart.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm text-gray-600">
+              <div key={item.id} className="flex justify-between text-sm text-gray-600 dark:text-zinc-400">
                 <span>{item.name} × {item.qty}</span>
                 <span>₹{(item.discounted_price || item.price) * item.qty}</span>
               </div>
             ))}
-            <div className="border-t border-gray-100 pt-3 mt-2 flex justify-between font-bold text-zinc-900">
+            <div className="border-t border-gray-100 dark:border-zinc-800 pt-3 mt-2 flex justify-between font-bold text-zinc-900 dark:text-white">
               <span>Total</span>
               <span>₹{cartTotal.toFixed(0)}</span>
             </div>
@@ -432,7 +432,7 @@ function Cart() {
         </div>
 
         {/* Razorpay badge */}
-        <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-400 dark:text-zinc-500">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="#528FF0"/>
           </svg>
@@ -447,14 +447,14 @@ function Cart() {
       </div>
 
       {/* Sticky pay button */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 p-4">
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-zinc-800 p-4 transition-colors duration-200">
         <div className="max-w-md mx-auto">
           <button
             onClick={handlePayAndOrder}
             disabled={paying || (stall && !stall.is_open)}
             className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-3 ${
               stall && !stall.is_open
-                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-zinc-800 dark:border-zinc-700"
                 : "bg-lime-500 hover:bg-lime-600 active:scale-[0.98] disabled:opacity-60 text-zinc-900 shadow-xl shadow-lime-500/20"
             }`}
           >
@@ -473,7 +473,7 @@ function Cart() {
               </>
             )}
           </button>
-          <p className="text-center text-xs text-gray-400 mt-2">
+          <p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-2">
             {stall && !stall.is_open ? "This restaurant is not accepting orders" : "You'll be redirected to Razorpay to complete payment"}
           </p>
         </div>

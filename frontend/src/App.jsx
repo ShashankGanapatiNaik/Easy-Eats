@@ -36,6 +36,7 @@ import MyOrders from "./pages/MyOrders";
 import AdminPanel from "./pages/AdminPanel";
 import KitchenDashboard from "./pages/KitchenDashboard";
 import GlobalNotificationToast from "./components/GlobalNotificationToast";
+import GroupCartPage from "./pages/GroupCartPage";
 
 const WalletPage = lazy(() =>
   import("./pages/WalletPage").catch(() => ({
@@ -366,6 +367,17 @@ function Inner() {
               roles={["student", "admin"]}
             >
               <MyOrders />
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/group-cart/:sessionId"
+          element={
+            <RequireAuth
+              roles={["student", "admin"]}
+            >
+              <GroupCartPage />
             </RequireAuth>
           }
         />

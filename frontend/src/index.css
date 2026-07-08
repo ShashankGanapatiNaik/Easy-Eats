@@ -4,13 +4,35 @@
 
 @layer base {
   * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html {
+    scroll-behavior: smooth;
+    background-color: #ffffff;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
   body {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-    background-color: #fafafa;
+    background-color: #ffffff;
     color: #18181b;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
+  html.dark,
+  html.dark body {
+    background-color: #09090b;
+    color: #f4f4f5;
+  }
+}
+
+/* ── Light mode: force ALL zinc/gray backgrounds to pure white ── */
+html:not(.dark) .bg-zinc-50,
+html:not(.dark) .bg-zinc-100,
+html:not(.dark) .bg-zinc-200,
+html:not(.dark) .bg-gray-50,
+html:not(.dark) .bg-gray-100,
+html:not(.dark) .bg-gray-200,
+html:not(.dark) .bg-slate-50,
+html:not(.dark) .bg-slate-100 {
+  background-color: #ffffff !important;
 }
 
 @layer utilities {

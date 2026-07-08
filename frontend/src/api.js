@@ -92,6 +92,14 @@ export const aiChat = (body) => api.post("/ai/chat", body);
 export const createRazorpayOrder = (amount) => api.post("/payments/create-order", { amount });
 export const verifyPayment       = (body)   => api.post("/payments/verify", body);
 
+// ── Group Orders ──────────────────────────────────────────────────────────────
+export const createGroupSession   = (stallId)     => api.post("/orders/group/create", { stall_id: stallId });
+export const joinGroupSession     = (code)        => api.post("/orders/group/join", { code });
+export const getGroupSession      = (sessionId)   => api.get(`/orders/group/${sessionId}`);
+export const updateGroupItem      = (sessionId, data) => api.post(`/orders/group/${sessionId}/item`, data);
+export const checkoutGroupSession = (sessionId, data) => api.post(`/orders/group/${sessionId}/checkout`, data);
+export const updateGroupPaymentMethod = (sessionId, paymentMethod) => api.put(`/orders/group/${sessionId}/payment_method`, { payment_method: paymentMethod });
+
 // ── OTP, Profile & Notifications ──────────────────────────────────────────────
 export const sendOtp                  = (phone, email) => api.post("/auth/otp/send", { phone, email });
 export const verifyOtp                = (phone, code)  => api.post("/auth/otp/verify", { phone, code });

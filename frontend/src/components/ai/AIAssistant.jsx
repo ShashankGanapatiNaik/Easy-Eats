@@ -741,7 +741,7 @@ export default function AIAssistant() {
   // ── Browse stall ───────────────────────────────────────────────────────────
   const handleBrowse = useCallback((stall) => {
     setOpen(false);
-    navigate(`/restaurant/${stall.slug || stall.id}`);
+    navigate(`/restaurant/${stall.id}`);
   }, [navigate]);
 
   // ── View full tracking page ────────────────────────────────────────────────

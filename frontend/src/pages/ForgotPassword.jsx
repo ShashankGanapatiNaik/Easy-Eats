@@ -117,29 +117,29 @@ export default function ForgotPassword() {
 
     return (
 
-        <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-zinc-100 dark:bg-zinc-950 p-6 transition-colors duration-200">
 
-            <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8">
+            <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-3xl shadow-2xl p-8 border dark:border-zinc-800">
 
-                <h1 className="text-3xl font-black text-center mb-2">
+                <h1 className="text-3xl font-black text-center mb-2 text-zinc-900 dark:text-white">
                     Reset Password
                 </h1>
 
-                <p className="text-zinc-500 text-center mb-8">
+                <p className="text-zinc-500 dark:text-zinc-400 text-center mb-8">
                     Recover your Easy Eats account
                 </p>
 
                 {/* DEV MODE: OTP display box — stays visible on steps 2 and 3 */}
                 {devOtp && step >= 2 && (
-                    <div className="mb-6 border-2 border-dashed border-amber-400 bg-amber-50 rounded-2xl p-4">
-                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">
+                    <div className="mb-6 border-2 border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-2xl p-4">
+                        <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">
                             ⚠️ Test Mode — Email not sent
                         </p>
-                        <p className="text-xs text-amber-600 mb-3">
+                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">
                             SMTP is not configured. Your OTP is shown below — copy it into the field.
                         </p>
                         <div
-                            className="text-center text-3xl font-black tracking-[0.3em] text-amber-900 bg-amber-100 rounded-xl py-3 cursor-pointer select-all"
+                            className="text-center text-3xl font-black tracking-[0.3em] text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950 rounded-xl py-3 cursor-pointer select-all"
                             onClick={() => setOtp(devOtp)}
                             title="Click to auto-fill OTP"
                         >
@@ -162,7 +162,7 @@ export default function ForgotPassword() {
                             placeholder="Enter your Gmail"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full border border-zinc-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
+                            className="w-full border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
                         />
 
                         <button
@@ -187,7 +187,7 @@ export default function ForgotPassword() {
                             placeholder="Enter OTP"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
-                            className="w-full border border-zinc-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
+                            className="w-full border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
                         />
 
                         <button
@@ -212,7 +212,7 @@ export default function ForgotPassword() {
                             placeholder="Enter New Password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full border border-zinc-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
+                            className="w-full border border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-lime-500"
                         />
 
                         <button

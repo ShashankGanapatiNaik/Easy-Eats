@@ -27,12 +27,12 @@ function Toast({ message, type }) {
 function Input({ label, type = "text", value, onChange, placeholder, required, minLength }) {
   return (
     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">{label}</label>
       <input type={type} value={value} onChange={onChange} placeholder={placeholder}
         required={required} minLength={minLength}
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none
+        className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none
                    focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
-                   placeholder:text-gray-400 bg-gray-50 focus:bg-white"/>
+                   placeholder:text-gray-400 dark:placeholder-zinc-500 bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900"/>
     </div>
   );
 }
@@ -196,7 +196,7 @@ export default function Login() {
   const isRegister = authMode === "register";
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-white dark:bg-zinc-950 flex flex-col md:flex-row transition-colors duration-200">
       {/* Left Branding Panel */}
       <div className="hidden md:flex md:w-5/12 lg:w-1/2 bg-zinc-900 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div className="relative z-10">
@@ -228,7 +228,7 @@ export default function Login() {
       </div>
 
       {/* Right Auth Panel */}
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-white relative">
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-20 bg-white dark:bg-zinc-900 relative transition-colors duration-200">
         <div className="w-full max-w-md mx-auto">
 
           {/* Mobile Header */}
@@ -236,14 +236,14 @@ export default function Login() {
             <div className="w-10 h-10 bg-lime-500 rounded-xl flex items-center justify-center shadow-lg">
               <img src={logo} alt="Easy Eats" className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-black text-zinc-900">Easy Eats</h1>
+            <h1 className="text-2xl font-black text-zinc-900 dark:text-white">Easy Eats</h1>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-zinc-900 mb-2">
+            <h2 className="text-3xl font-black text-zinc-900 dark:text-white mb-2">
               {isRegister ? "Create Account" : "Welcome Back"}
             </h2>
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-zinc-400">
               {isRegister
                 ? "Sign up to get started with Easy Eats."
                 : "Enter your credentials to access your account."}
@@ -251,9 +251,9 @@ export default function Login() {
           </div>
 
           {/* Role Toggle Tabs */}
-          <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-8 relative">
+          <div className="flex bg-gray-100 dark:bg-zinc-800 p-1.5 rounded-2xl mb-8 relative">
             <div
-              className="absolute inset-y-1.5 bg-white rounded-xl shadow-sm transition-all duration-300 ease-out"
+              className="absolute inset-y-1.5 bg-white dark:bg-zinc-700 rounded-xl shadow-sm transition-all duration-300 ease-out"
               style={{
                 width: "calc(33.333% - 4px)",
                 left: role === "student" ? "6px" : role === "stall_owner" ? "calc(33.333% + 2px)" : "calc(66.666% - 2px)"
@@ -271,7 +271,7 @@ export default function Login() {
                   setToast(null);
                   if (r.id !== "student") setAuthMode("signin");
                 }}
-                className={`flex-1 py-2.5 text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1.5 relative z-10 transition-colors ${role === r.id ? "text-zinc-900" : "text-gray-500 hover:text-gray-700"
+                className={`flex-1 py-2.5 text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1.5 relative z-10 transition-colors ${role === r.id ? "text-zinc-900 dark:text-white" : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"
                   }`}
               >
                 <span className="text-lg leading-none">{r.icon}</span>
@@ -291,7 +291,7 @@ export default function Login() {
                   <Input label="Email Address" type="email" value={siEmail}
                     onChange={e => setSiEmail(e.target.value)} placeholder="you@example.com" required />
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">
                       Password
                     </label>
 
@@ -302,9 +302,9 @@ export default function Login() {
                         onChange={(e) => setSiPassword(e.target.value)}
                         placeholder="••••••••"
                         required
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
+                        className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 pr-12 text-sm outline-none
     focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
-    placeholder:text-gray-400 bg-gray-50 focus:bg-white"
+    placeholder:text-gray-400 dark:placeholder-zinc-500 bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900"
                       />
 
                       <button
@@ -337,12 +337,12 @@ export default function Login() {
                   <Input label="College Email" type="email" value={stEmail} onChange={e => setStEmail(e.target.value)} placeholder="student@college.edu" required />
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Phone Number</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">Phone Number</label>
                     <div className="flex gap-2">
                       <select
                         value={stCountryCode}
                         onChange={e => setStCountryCode(e.target.value)}
-                        className="border border-gray-200 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
+                        className="border border-gray-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 dark:bg-zinc-800 dark:text-white font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
                       >
                         <option value="+91">🇮🇳 +91</option>
                         <option value="+1">🇺🇸 +1</option>
@@ -355,13 +355,13 @@ export default function Login() {
                         onChange={e => setStPhone(e.target.value)}
                         placeholder="98765 43210"
                         required
-                        className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all placeholder:text-gray-400 bg-gray-50 focus:bg-white font-medium"
+                        className="flex-1 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all placeholder:text-gray-400 dark:placeholder-zinc-500 bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900 font-medium"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">
                       Create Password
                     </label>
 
@@ -373,9 +373,9 @@ export default function Login() {
                         placeholder="Min 6 characters"
                         required
                         minLength={6}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm outline-none
+                        className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 pr-12 text-sm outline-none
       focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all
-      placeholder:text-gray-400 bg-gray-50 focus:bg-white"
+      placeholder:text-gray-400 dark:placeholder-zinc-500 bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900"
                       />
 
                       <button
@@ -409,17 +409,17 @@ export default function Login() {
 
             <div className="relative pt-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
+                <div className="w-full border-t border-gray-200 dark:border-zinc-800"></div>
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-4 text-gray-400 font-bold tracking-widest">Demo Login</span>
+                <span className="bg-white dark:bg-zinc-900 px-4 text-gray-400 dark:text-zinc-500 font-bold tracking-widest">Demo Login</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               {[
                 // { label: "🎓 Student", email: "student@demo.com", role: "student" },
-                // { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
+                { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
                 { label: "🍔 Burger Hub", email: "burger@demo.com", role: "stall_owner" },
                 { label: "☕ Coffee Corner", email: "coffee@demo.com", role: "stall_owner" },
                 // { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
@@ -432,8 +432,8 @@ export default function Login() {
                     setSiPassword("demo1234");
                     doLogin(d.email, "demo1234");
                   }}
-                  className={`text-xs border border-gray-200 text-gray-600 py-3 px-3 rounded-xl
-                             hover:border-lime-500 hover:bg-lime-50 hover:text-lime-700 font-bold transition-all
+                  className={`text-xs border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 py-3 px-3 rounded-xl
+                             hover:border-lime-500 hover:bg-lime-50 dark:hover:bg-zinc-800 hover:text-lime-700 font-bold transition-all
                              ${role === "admin" ? "col-span-2 max-w-xs mx-auto w-full" : ""}`}>
                   {d.label}
                 </button>

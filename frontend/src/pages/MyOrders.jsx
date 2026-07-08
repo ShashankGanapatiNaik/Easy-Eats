@@ -222,385 +222,385 @@ function MyOrders() {
     );
   }
 
-  return (
+    return (
 
-    <div className="max-w-5xl mx-auto min-h-screen bg-zinc-50 p-4 md:p-8">
+      <div className="max-w-5xl mx-auto min-h-screen bg-white dark:bg-zinc-950 p-4 md:p-8 transition-colors duration-200">
 
-      {/* HEADER */}
+        {/* HEADER */}
 
-      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
 
-        <h1 className="text-4xl font-black text-zinc-900">
+          <h1 className="text-4xl font-black text-zinc-900 dark:text-white">
 
-          My Orders
+            My Orders
 
-        </h1>
+          </h1>
 
-        <button
-          onClick={() => navigate(-1)}
-          className="w-14 h-14 rounded-full bg-zinc-100 text-3xl text-zinc-500"
-        >
+          <button
+            onClick={() => navigate(-1)}
+            className="w-14 h-14 rounded-full bg-zinc-100 dark:bg-zinc-800 text-3xl text-zinc-500 dark:text-zinc-400"
+          >
 
-          ×
+            ×
 
-        </button>
+          </button>
 
-      </div>
+        </div>
 
-      {/* SEARCH */}
+        {/* SEARCH */}
 
-      <div className="bg-white border border-zinc-200 rounded-3xl px-6 py-5 flex items-center gap-4 mb-8 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl px-6 py-5 flex items-center gap-4 mb-8 shadow-sm">
 
-        <span className="text-2xl text-zinc-400">
+          <span className="text-2xl text-zinc-400 dark:text-zinc-500">
 
-          🔍
+            🔍
 
-        </span>
+          </span>
 
-        <input
-          type="text"
-          placeholder="Search restaurants..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-transparent outline-none w-full text-xl"
-        />
+          <input
+            type="text"
+            placeholder="Search restaurants..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-transparent outline-none w-full text-xl text-zinc-900 dark:text-white placeholder:text-zinc-400"
+          />
 
-      </div>
+        </div>
 
-      {/* ORDER LIST */}
+        {/* ORDER LIST */}
 
-      <div className="space-y-6">
+        <div className="space-y-6">
 
-        {filteredOrders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
 
-          <div className="bg-white rounded-3xl p-10 text-center border border-zinc-200">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl p-10 text-center border border-zinc-200 dark:border-zinc-800">
 
-            <p className="text-6xl mb-4">
+              <p className="text-6xl mb-4">
 
-              📦
+                📦
 
-            </p>
+              </p>
 
-            <h2 className="text-3xl font-black mb-2">
+              <h2 className="text-3xl font-black mb-2 text-zinc-900 dark:text-white">
 
-              No Orders Found
+                No Orders Found
 
-            </h2>
+              </h2>
 
-            <p className="text-zinc-500">
+              <p className="text-zinc-500 dark:text-zinc-400">
 
-              Your orders will appear here.
+                Your orders will appear here.
 
-            </p>
+              </p>
 
-          </div>
+            </div>
 
-        ) : (
+          ) : (
 
-          filteredOrders.map((order) => {
+            filteredOrders.map((order) => {
 
-            return (
+              return (
 
-              <div
-                key={order.id}
-                className="bg-white border border-zinc-200 rounded-[35px] overflow-hidden shadow-sm"
-              >
+                <div
+                  key={order.id}
+                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-[35px] overflow-hidden shadow-sm"
+                >
 
-                {/* TOP */}
+                  {/* TOP */}
 
-                <div className="p-6 flex items-center justify-between">
+                  <div className="p-6 flex items-center justify-between">
 
-                  <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-5">
 
-                    <div className="w-20 h-20 rounded-[24px] bg-lime-400 flex items-center justify-center text-4xl font-black text-zinc-900">
+                      <div className="w-20 h-20 rounded-[24px] bg-lime-400 flex items-center justify-center text-4xl font-black text-zinc-900">
 
-                      {(order.stall_name || "S")
-                        .charAt(0)}
+                        {(order.stall_name || "S")
+                          .charAt(0)}
+
+                      </div>
+
+                      <div>
+
+                        <h2 className="text-3xl font-black text-zinc-900 dark:text-white">
+
+                          {order.stall_name || "Restaurant"}
+
+                        </h2>
+
+                        <p className="text-zinc-400 dark:text-zinc-500 mt-1 text-lg">
+
+                          {new Date(
+                            order.placed_at
+                          ).toLocaleString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+
+                        </p>
+
+                      </div>
 
                     </div>
 
-                    <div>
+                    <div className={`px-4 py-2 rounded-2xl text-sm font-black ${STATUS_STYLES[order.status]
+                      }`}>
 
-                      <h2 className="text-3xl font-black text-zinc-900">
-
-                        {order.stall_name || "Restaurant"}
-
-                      </h2>
-
-                      <p className="text-zinc-400 mt-1 text-lg">
-
-                        {new Date(
-                          order.placed_at
-                        ).toLocaleString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-
-                      </p>
+                      {order.status}
 
                     </div>
 
                   </div>
 
-                  <div className={`px-4 py-2 rounded-2xl text-sm font-black ${STATUS_STYLES[order.status]
-                    }`}>
+                  {/* ITEMS */}
 
-                    {order.status}
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 p-6">
+
+                    {(order.items || []).map((item, index) => (
+
+                      <div
+                        key={index}
+                        className="flex justify-between text-lg text-zinc-600 dark:text-zinc-400 mb-3"
+                      >
+
+                        <span>
+
+                          {item.qty}× {item.name}
+
+                        </span>
+
+                        <span>
+
+                          ₹{item.subtotal}
+
+                        </span>
+
+                      </div>
+
+                    ))}
 
                   </div>
 
-                </div>
+                  {/* FOOTER */}
 
-                {/* ITEMS */}
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 p-6 flex items-center justify-between flex-wrap gap-4">
 
-                <div className="border-t border-zinc-100 p-6">
+                    {/* TOTAL */}
 
-                  {(order.items || []).map((item, index) => (
+                    <h3 className="text-4xl font-black text-zinc-900 dark:text-white">
 
-                    <div
-                      key={index}
-                      className="flex justify-between text-lg text-zinc-600 mb-3"
-                    >
+                      ₹{order.total}
 
-                      <span>
+                    </h3>
 
-                        {item.qty}× {item.name}
+                    {/* BUTTONS */}
 
-                      </span>
+                    <div className="flex gap-3 flex-wrap justify-end">
 
-                      <span>
+                      {/* IF ORDER NOT COLLECTED */}
 
-                        ₹{item.subtotal}
-
-                      </span>
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-                {/* FOOTER */}
-
-                <div className="border-t border-zinc-100 p-6 flex items-center justify-between flex-wrap gap-4">
-
-                  {/* TOTAL */}
-
-                  <h3 className="text-4xl font-black text-zinc-900">
-
-                    ₹{order.total}
-
-                  </h3>
-
-                  {/* BUTTONS */}
-
-                  <div className="flex gap-3 flex-wrap justify-end">
-
-                    {/* IF ORDER NOT COLLECTED */}
-
-                    {order.status !== "Collected" &&
-                      order.status !== "Cancelled" && (
-
-                        <button
-                          onClick={() => handleTrackOrder(order.id)}
-                          className="bg-lime-400 hover:bg-lime-500 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
-                        >
-
-                          📍 Track Order
-
-                        </button>
-
-                      )}
-
-                    {/* IF ORDER COLLECTED */}
-
-                    {order.status === "Collected" && (
-
-                      <>
-
-                        {/* TRACK */}
-
-                        <button
-                          onClick={() => handleTrackOrder(order.id)}
-                          className="bg-lime-400 hover:bg-lime-500 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
-                        >
-
-                          📍 Track
-
-                        </button>
-
-                        {/* REORDER */}
-
-                        <button
-                          disabled={order.stall_is_open === false}
-                          onClick={() => handleReorder(order)}
-                          className={`px-6 py-3 rounded-2xl font-black transition-all ${
-                            order.stall_is_open !== false
-                              ? "bg-zinc-900 hover:bg-black text-white"
-                              : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                          }`}
-                        >
-
-                          {order.stall_is_open !== false ? "🔄 Reorder" : "🔒 Closed"}
-
-                        </button>
-
-                        {/* RECEIPT */}
-
-                        <button
-                          onClick={() => handlePrintReceipt(order)}
-                          className="bg-zinc-100 hover:bg-zinc-200 px-6 py-3 rounded-2xl font-black text-zinc-700 transition-all"
-                        >
-
-                          🧾 Receipt
-
-                        </button>
-
-                        {/* REVIEW */}
-
-                        {!order.review_submitted && (
+                      {order.status !== "Collected" &&
+                        order.status !== "Cancelled" && (
 
                           <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="bg-yellow-300 hover:bg-yellow-400 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
+                            onClick={() => handleTrackOrder(order.id)}
+                            className="bg-lime-400 hover:bg-lime-500 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
                           >
 
-                            ⭐ Review
+                            📍 Track Order
 
                           </button>
 
                         )}
 
-                        {/* REVIEWED */}
+                      {/* IF ORDER COLLECTED */}
 
-                        {order.review_submitted && (
+                      {order.status === "Collected" && (
 
-                          <div className="bg-lime-100 text-lime-700 px-6 py-3 rounded-2xl font-black">
+                        <>
 
-                            ✅ Reviewed
+                          {/* TRACK */}
 
-                          </div>
+                          <button
+                            onClick={() => handleTrackOrder(order.id)}
+                            className="bg-lime-400 hover:bg-lime-500 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
+                          >
 
-                        )}
+                            📍 Track
 
-                      </>
+                          </button>
 
-                    )}
+                          {/* REORDER */}
 
-                    {/* CANCELLED */}
+                          <button
+                            disabled={order.stall_is_open === false}
+                            onClick={() => handleReorder(order)}
+                            className={`px-6 py-3 rounded-2xl font-black transition-all ${
+                              order.stall_is_open !== false
+                                ? "bg-zinc-900 hover:bg-black text-white dark:bg-zinc-800 dark:text-zinc-200"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                            }`}
+                          >
 
-                    {order.status === "Cancelled" && (
+                            {order.stall_is_open !== false ? "🔄 Reorder" : "🔒 Closed"}
 
-                      <div className="bg-red-100 text-red-700 px-6 py-3 rounded-2xl font-black">
+                          </button>
 
-                        ❌ Cancelled
+                          {/* RECEIPT */}
 
-                      </div>
+                          <button
+                            onClick={() => handlePrintReceipt(order)}
+                            className="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 px-6 py-3 rounded-2xl font-black text-zinc-700 transition-all"
+                          >
 
-                    )}
+                            🧾 Receipt
+
+                          </button>
+
+                          {/* REVIEW */}
+
+                          {!order.review_submitted && (
+
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="bg-yellow-300 hover:bg-yellow-400 px-6 py-3 rounded-2xl font-black text-zinc-900 transition-all"
+                            >
+
+                              ⭐ Review
+
+                            </button>
+
+                          )}
+
+                          {/* REVIEWED */}
+
+                          {order.review_submitted && (
+
+                            <div className="bg-lime-100 text-lime-700 px-6 py-3 rounded-2xl font-black">
+
+                              ✅ Reviewed
+
+                            </div>
+
+                          )}
+
+                        </>
+
+                      )}
+
+                      {/* CANCELLED */}
+
+                      {order.status === "Cancelled" && (
+
+                        <div className="bg-red-100 text-red-700 px-6 py-3 rounded-2xl font-black">
+
+                          ❌ Cancelled
+
+                        </div>
+
+                      )}
+
+                    </div>
 
                   </div>
 
                 </div>
 
+              );
+            })
+
+          )}
+
+        </div>
+
+        {/* REVIEW MODAL */}
+
+        {selectedOrder && (
+
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+
+            <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 w-full max-w-xl rounded-[35px] p-8 shadow-2xl">
+
+              <h2 className="text-3xl font-black mb-6 text-zinc-900 dark:text-white">
+
+                Review Restaurant
+
+              </h2>
+
+              <div className="mb-5">
+
+                <label className="block font-black mb-3 text-zinc-900 dark:text-zinc-300">
+
+                  Rating
+
+                </label>
+
+                <select
+                  value={rating}
+                  onChange={(e) => setRating(Number(e.target.value))}
+                  className="w-full border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white rounded-2xl px-5 py-4"
+                >
+
+                  <option value={5}>⭐⭐⭐⭐⭐</option>
+                  <option value={4}>⭐⭐⭐⭐</option>
+                  <option value={3}>⭐⭐⭐</option>
+                  <option value={2}>⭐⭐</option>
+                  <option value={1}>⭐</option>
+
+                </select>
+
               </div>
 
-            );
-          })
+              <div className="mb-6">
 
-        )}
+                <label className="block font-black mb-3 text-zinc-900 dark:text-zinc-300">
 
-      </div>
+                  Review
 
-      {/* REVIEW MODAL */}
+                </label>
 
-      {selectedOrder && (
+                <textarea
+                  rows={5}
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Write your review..."
+                  className="w-full border border-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white rounded-2xl px-5 py-4 resize-none"
+                />
 
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              </div>
 
-          <div className="bg-white w-full max-w-xl rounded-[35px] p-8">
+              <div className="flex gap-4">
 
-            <h2 className="text-3xl font-black mb-6">
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="flex-1 border border-zinc-200 dark:border-zinc-700 dark:text-zinc-300 rounded-2xl py-4 font-black"
+                >
 
-              Review Restaurant
+                  Cancel
 
-            </h2>
+                </button>
 
-            <div className="mb-5">
+                <button
+                  onClick={handleSubmitReview}
+                  className="flex-1 bg-lime-400 hover:bg-lime-500 rounded-2xl py-4 font-black text-zinc-900"
+                >
 
-              <label className="block font-black mb-3">
+                  Submit
 
-                Rating
+                </button>
 
-              </label>
-
-              <select
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-                className="w-full border border-zinc-200 rounded-2xl px-5 py-4"
-              >
-
-                <option value={5}>⭐⭐⭐⭐⭐</option>
-                <option value={4}>⭐⭐⭐⭐</option>
-                <option value={3}>⭐⭐⭐</option>
-                <option value={2}>⭐⭐</option>
-                <option value={1}>⭐</option>
-
-              </select>
-
-            </div>
-
-            <div className="mb-6">
-
-              <label className="block font-black mb-3">
-
-                Review
-
-              </label>
-
-              <textarea
-                rows={5}
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="Write your review..."
-                className="w-full border border-zinc-200 rounded-2xl px-5 py-4 resize-none"
-              />
-
-            </div>
-
-            <div className="flex gap-4">
-
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="flex-1 border border-zinc-200 rounded-2xl py-4 font-black"
-              >
-
-                Cancel
-
-              </button>
-
-              <button
-                onClick={handleSubmitReview}
-                className="flex-1 bg-lime-400 hover:bg-lime-500 rounded-2xl py-4 font-black text-zinc-900"
-              >
-
-                Submit
-
-              </button>
+              </div>
 
             </div>
 
           </div>
 
-        </div>
+        )}
 
-      )}
-
-    </div>
-  );
+      </div>
+    );
 }
 
 export default MyOrders;

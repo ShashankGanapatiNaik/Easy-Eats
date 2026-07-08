@@ -5,7 +5,9 @@ import { io } from "socket.io-client";
 
 import {
   getStall,
-  SOCKET_URL
+  SOCKET_URL,
+  createGroupSession,
+  joinGroupSession
 } from "../api";
 
 function Restaurant() {
@@ -133,6 +135,27 @@ function Restaurant() {
 
   };
 
+  const handleStartGroupOrder = async () => {
+    try {
+      const res = await createGroupSession(id);
+      const session = res.data;
+      navigate(`/group-cart/${session.id}`);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Could not start group session");
+    }
+  };
+
+  const handleJoinGroupOrder = async () => {
+    const code = prompt("Enter 6-character Group Code:");
+    if (!code) return;
+    try {
+      const res = await joinGroupSession(code.trim());
+      navigate(`/group-cart/${res.data.session_id}`);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Could not join group session");
+    }
+  };
+
   const activeItems = (() => {
 
     const section =
@@ -181,7 +204,7 @@ function Restaurant() {
 
   return (
 
-    <div className="max-w-md md:max-w-3xl xl:max-w-7xl mx-auto min-h-screen bg-zinc-50 pb-28">
+    <div className="max-w-md md:max-w-3xl xl:max-w-7xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-28 transition-colors duration-200">
 
       {/* HERO */}
 
@@ -345,6 +368,35 @@ function Restaurant() {
 
       </div>
 
+      {/* GROUP ORDERING ACTIONS */}
+      {stall.is_open && (
+        <div className="px-4 md:px-6 xl:px-8 mt-6">
+          <div className="bg-gradient-to-r from-lime-500/15 to-emerald-500/15 dark:from-lime-500/10 dark:to-emerald-500/10 border border-lime-500/30 dark:border-lime-500/20 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">👥</span>
+              <div>
+                <h4 className="font-bold text-zinc-900 dark:text-white text-base">Group Ordering</h4>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">Order together from {stall.name} & split the bill!</p>
+              </div>
+            </div>
+            <div className="flex gap-2.5 w-full sm:w-auto">
+              <button
+                onClick={handleStartGroupOrder}
+                className="flex-1 sm:flex-none bg-lime-500 hover:bg-lime-600 text-zinc-900 text-xs font-black px-5 py-3 rounded-full transition-all tracking-wide"
+              >
+                START GROUP
+              </button>
+              <button
+                onClick={handleJoinGroupOrder}
+                className="flex-1 sm:flex-none bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs font-black px-5 py-3 rounded-full transition-all tracking-wide"
+              >
+                JOIN GROUP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CATEGORY */}
 
       <div className="px-4 md:px-6 xl:px-8 mt-6">
@@ -359,8 +411,8 @@ function Restaurant() {
                 setActiveTab(cat)
               }
               className={`px-5 py-2.5 rounded-full whitespace-nowrap text-sm font-medium transition-all ${activeTab === cat
-                  ? "bg-zinc-900 text-white"
-                  : "bg-white border border-gray-200 text-gray-600"
+                  ? "bg-zinc-900 dark:bg-lime-500 dark:text-zinc-900 text-white"
+                  : "bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 border border-gray-200 text-gray-600"
                 }`}
             >
 
@@ -390,7 +442,7 @@ function Restaurant() {
 
             <div
               key={item.id}
-              className={`bg-white rounded-3xl p-4 shadow-sm border flex gap-4 transition-all ${
+              className={`bg-white dark:bg-zinc-900 rounded-3xl p-4 shadow-sm border dark:border-zinc-800 flex gap-4 transition-all ${
                 !item.is_available ? "opacity-60 select-none" : ""
               }`}
             >
@@ -413,7 +465,7 @@ function Restaurant() {
                 <div>
 
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-lg text-zinc-900">
+                    <h3 className="font-bold text-lg text-zinc-900 dark:text-white">
                       {item.name}
                     </h3>
                     {!item.is_available && (
@@ -433,7 +485,7 @@ function Restaurant() {
 
                 <div className="flex justify-between items-center mt-3">
 
-                  <p className="font-bold text-lg text-zinc-900">
+                  <p className="font-bold text-lg text-zinc-900 dark:text-white">
 
                     ₹{item.price}
 

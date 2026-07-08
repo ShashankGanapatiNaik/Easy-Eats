@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getStalls, updateProfile, sendOtp, getOrderHistory, submitReview, getNotifications, markAllNotificationsRead, SOCKET_URL } from "../api";
+import { getStalls, updateProfile, sendOtp, getOrderHistory, submitReview, getNotifications, markAllNotificationsRead, SOCKET_URL, createGroupSession, joinGroupSession } from "../api";
 import { useCart } from "../context/CartContext";
 import logo from "../assets/logo.svg";
 import WalletWidget from "../components/ai/WalletWidget";
 import OTPModal from "../components/OTPModal";
 import { io } from "socket.io-client";
+import { useTheme } from "../context/ThemeContext";
 
 function CrowdBadge({ density }) {
   if (!density) return null;
@@ -37,6 +38,7 @@ const CUISINE_FILTERS = ["All", "Snacks", "Burgers", "Coffee", "Meals", "Dessert
 
 export default function Home() {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [stalls, setStalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -70,6 +72,47 @@ export default function Home() {
     phone: user.phone || localStorage.getItem("profile_phone") || "",
   });
   const [editForm, setEditForm] = useState({ ...profile });
+
+  // ── Group Order / Shared Feast State ───────────────────────────────────────
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupModalStep, setGroupModalStep] = useState("select-action"); // "select-action" | "select-stall" | "join-code"
+  const [openStalls, setOpenStalls] = useState([]);
+  const [groupStallsLoading, setGroupStallsLoading] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+
+  const handleStartGroupOrderFlow = async () => {
+    setGroupModalStep("select-stall");
+    setGroupStallsLoading(true);
+    try {
+      const res = await getStalls();
+      const all = res.data || [];
+      setOpenStalls(all.filter(s => s.is_open));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGroupStallsLoading(false);
+    }
+  };
+
+  const handleCreateGroupSession = async (stallId) => {
+    try {
+      const res = await createGroupSession(stallId);
+      const session = res.data;
+      navigate(`/group-cart/${session.id}`);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Could not start group session");
+    }
+  };
+
+  const handleJoinGroupSessionSubmit = async () => {
+    if (!joinCode) return;
+    try {
+      const res = await joinGroupSession(joinCode.trim());
+      navigate(`/group-cart/${res.data.session_id}`);
+    } catch (e) {
+      alert(e.response?.data?.detail || "Could not join group session");
+    }
+  };
 
   useEffect(() => { loadStalls(); }, [active]);
 
@@ -295,7 +338,7 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-md md:max-w-3xl xl:max-w-7xl mx-auto min-h-screen bg-zinc-50 pb-24">
+    <div className="max-w-md md:max-w-3xl xl:max-w-7xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-24 transition-colors duration-200">
       <div className="px-4 md:px-6 xl:px-8 pt-6">
 
         {/* Header */}
@@ -303,8 +346,8 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <img src={logo} alt="Easy Eats" className="w-12 h-12 object-contain" />
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900">Easy Eats</h1>
-              <p className="text-sm text-gray-400">Pick up faster on campus</p>
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Easy Eats</h1>
+              <p className="text-sm text-gray-400 dark:text-zinc-500">Pick up faster on campus</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -395,8 +438,17 @@ export default function Home() {
               </div>
             )}
 
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center shadow-sm hover:scale-105 transition-all text-lg"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+
             <button onClick={() => setShowProfile(true)}
-              className="w-10 h-10 rounded-full bg-zinc-900 text-white font-bold
+              className="w-10 h-10 rounded-full bg-zinc-900 dark:bg-lime-500 dark:text-zinc-900 text-white font-bold
                          flex items-center justify-center shadow-md hover:scale-105 transition-transform">
               {getInitial()}
             </button>
@@ -412,9 +464,24 @@ export default function Home() {
           </div>
           <input type="text" placeholder="Search stalls or cuisine…"
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-white rounded-2xl pl-12 pr-4 py-4 shadow-sm border
+            className="w-full bg-white dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500 dark:border-zinc-700 rounded-2xl pl-12 pr-4 py-4 shadow-sm border
                        border-gray-200 outline-none focus:ring-2 focus:ring-lime-500/50
                        focus:border-lime-500 transition-all"/>
+        </div>
+
+        {/* Group Order / Shared Feast Banner */}
+        <div className="mt-5 bg-gradient-to-r from-lime-500 to-emerald-600 rounded-3xl p-5 text-zinc-950 flex justify-between items-center shadow-lg relative overflow-hidden cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all"
+             onClick={() => setShowGroupModal(true)}>
+          <div className="relative z-10">
+            <span className="text-[10px] bg-zinc-950 text-lime-400 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+              New Feature
+            </span>
+            <h3 className="text-xl font-black text-zinc-950 mt-2">Shared Feast 👥</h3>
+            <p className="text-xs text-zinc-950/80 font-bold mt-1">Start a group order and split the bill with friends!</p>
+          </div>
+          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl relative z-10 shadow-inner">
+            🤝
+          </div>
         </div>
 
         {/* Promo banners */}
@@ -443,8 +510,8 @@ export default function Home() {
           {CUISINE_FILTERS.map(item => (
             <button key={item} onClick={() => setActive(item)}
               className={`px-5 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${active === item
-                  ? "bg-zinc-900 text-white shadow-md"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  ? "bg-zinc-900 dark:bg-lime-500 dark:text-zinc-900 text-white shadow-md"
+                  : "bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 border border-gray-200 text-gray-600 hover:bg-gray-50 dark:hover:bg-zinc-700"
                 }`}>
               {item}
             </button>
@@ -498,7 +565,7 @@ export default function Home() {
         {/* Stall cards */}
         {!loading && filtered.map(stall => (
           <div key={stall.id} onClick={() => navigate("/restaurant/" + stall.id)}
-            className="group bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100
+            className="group bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-800
                        cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
             <div className="w-full h-44 overflow-hidden relative">
               <img
@@ -522,9 +589,9 @@ export default function Home() {
             <div className="p-5">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-bold text-zinc-900 group-hover:text-lime-600 transition-colors">{stall.name}</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">{stall.cuisine_type}</p>
-                  {stall.location_label && <p className="text-xs text-gray-400 mt-0.5">{stall.location_label}</p>}
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white group-hover:text-lime-600 transition-colors">{stall.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">{stall.cuisine_type}</p>
+                  {stall.location_label && <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">{stall.location_label}</p>}
                   
                   {/* Live Crowd Intelligence Row */}
                   {stall.is_open && stall.queue_density && (
@@ -551,8 +618,8 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="border-t border-gray-100 mt-4 pt-4 flex justify-between items-center text-sm">
-                <div className="flex items-center gap-1.5 text-gray-600 bg-gray-50 px-2.5 py-1 rounded-lg">
+              <div className="border-t border-gray-100 dark:border-zinc-800 mt-4 pt-4 flex justify-between items-center text-sm">
+                <div className="flex items-center gap-1.5 text-gray-600 dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -569,7 +636,7 @@ export default function Home() {
       {showProfile && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => { setShowProfile(false); setIsEditing(false); setProfileTab("info"); }}>
-          <div className={`bg-white w-full rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col transition-all duration-300 ${profileTab === "history" ? "md:max-w-3xl max-h-[90vh]" : "md:max-w-md max-h-[85vh]"
+          <div className={`bg-white dark:bg-zinc-900 w-full rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col transition-all duration-300 ${profileTab === "history" ? "md:max-w-3xl max-h-[90vh]" : "md:max-w-md max-h-[85vh]"
             }`}
             onClick={e => e.stopPropagation()}>
 
@@ -864,6 +931,106 @@ export default function Home() {
               <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Cancel</button>
               <button onClick={logout} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold">Logout</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Order Modal Overlay */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+             onClick={() => { setShowGroupModal(false); setGroupModalStep("select-action"); }}>
+          <div className="bg-white w-full md:max-w-md rounded-3xl shadow-2xl p-6 flex flex-col max-h-[85vh] transition-all duration-300 animate-slide-up"
+               onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-black text-zinc-900">Shared Feast Order</h2>
+              <button onClick={() => { setShowGroupModal(false); setGroupModalStep("select-action"); }}
+                      className="bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">✕</button>
+            </div>
+
+            {/* Step 1: Select Action */}
+            {groupModalStep === "select-action" && (
+              <div className="space-y-4">
+                <button onClick={handleStartGroupOrderFlow}
+                        className="w-full text-left p-5 bg-lime-50 border border-lime-100 rounded-3xl flex items-center gap-4 hover:bg-lime-100/50 transition-all">
+                  <span className="text-3xl">👑</span>
+                  <div>
+                    <p className="font-black text-base text-zinc-900">Start a Group Order</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Select a restaurant and host a group session.</p>
+                  </div>
+                </button>
+
+                <button onClick={() => setGroupModalStep("join-code")}
+                        className="w-full text-left p-5 bg-white border border-gray-100 rounded-3xl flex items-center gap-4 hover:bg-gray-50 transition-all">
+                  <span className="text-3xl">👥</span>
+                  <div>
+                    <p className="font-black text-base text-zinc-900">Join Existing Group</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Enter a 6-character room code to join your friends.</p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Select Stall/Hotel (Host flow) */}
+            {groupModalStep === "select-stall" && (
+              <div className="space-y-4">
+                <p className="text-xs font-black uppercase text-zinc-400 tracking-wider">Select a Restaurant</p>
+                <div className="space-y-2.5 max-h-60 overflow-y-auto">
+                  {groupStallsLoading ? (
+                    <div className="text-center py-6 text-xs text-gray-400">Loading open stalls...</div>
+                  ) : openStalls.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-gray-400">No open restaurants available.</div>
+                  ) : (
+                    openStalls.map(stall => (
+                      <div key={stall.id} 
+                           onClick={() => handleCreateGroupSession(stall.id)}
+                           className="flex items-center justify-between p-3.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-2xl cursor-pointer transition-all">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">🏪</span>
+                          <div className="text-left">
+                            <p className="font-bold text-sm text-zinc-900">{stall.name}</p>
+                            <p className="text-[10px] text-gray-500">{stall.cuisine_type} • {stall.location_label}</p>
+                          </div>
+                        </div>
+                        <span className="text-zinc-400 font-bold">›</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button onClick={() => setGroupModalStep("select-action")}
+                        className="w-full bg-gray-100 py-3 rounded-2xl font-bold text-sm text-gray-600 hover:bg-gray-200">
+                  Back
+                </button>
+              </div>
+            )}
+
+            {/* Step 3: Enter Code (Join flow) */}
+            {groupModalStep === "join-code" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black uppercase text-zinc-400 tracking-wider mb-2">Room Code</label>
+                  <input type="text" 
+                         value={joinCode}
+                         onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                         placeholder="ENTER 6-CHAR CODE"
+                         maxLength={6}
+                         className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-center font-mono font-black text-lg tracking-widest outline-none focus:border-lime-500 focus:bg-white transition-all"/>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setGroupModalStep("select-action")}
+                          className="flex-1 bg-gray-100 py-3 rounded-2xl font-bold text-sm text-gray-600 hover:bg-gray-200">
+                    Cancel
+                  </button>
+                  <button onClick={handleJoinGroupSessionSubmit}
+                          disabled={joinCode.trim().length !== 6}
+                          className="flex-1 bg-lime-500 hover:bg-lime-600 disabled:opacity-50 text-zinc-900 py-3 rounded-2xl font-bold text-sm transition-all">
+                    Join Room
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
