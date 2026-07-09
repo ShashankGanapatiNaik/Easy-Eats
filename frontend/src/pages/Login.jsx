@@ -422,6 +422,7 @@ export default function Login() {
                 { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
                 { label: "🍔 Burger Hub", email: "burger@demo.com", role: "stall_owner" },
                 { label: "☕ Coffee Corner", email: "coffee@demo.com", role: "stall_owner" },
+                { label: "☕ Mahasati Chinese", email: "mahasati@demo.com", role: "stall_owner" },
                 // { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
               ].filter(d => role === "admin" ? d.role === "admin" : true).map((d) => (
                 <button key={d.label} type="button"
