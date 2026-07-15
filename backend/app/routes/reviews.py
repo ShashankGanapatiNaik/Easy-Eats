@@ -219,6 +219,9 @@ async def add_review(
     # RESPONSE
     # =====================================================
 
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
+
     return {
 
         "message":

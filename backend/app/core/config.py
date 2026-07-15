@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Easy Eats API"
     DEBUG: bool = False
+    REDIS_URL: str = "redis://localhost:6379/0"
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

@@ -143,6 +143,12 @@ async def get_stall(stall_id: str):
     """
     Return stall details + menu + reviews from MongoDB
     """
+    from app.services.redis_service import get_cache, set_cache
+
+    cache_key = f"stall:menu:{stall_id}"
+    cached_data = await get_cache(cache_key)
+    if cached_data is not None:
+        return cached_data
 
     # =====================================================
     # FIND STALL
@@ -323,7 +329,7 @@ async def get_stall(stall_id: str):
     from app.services.queue_service import get_queue_density
     density = await get_queue_density(stall)
 
-    return {
+    res = {
 
         "id":
             str(stall.id),
@@ -385,6 +391,9 @@ async def get_stall(stall_id: str):
 
     }
 
+    await set_cache(cache_key, res, expire=3600)
+    return res
+
 
 @router.post("/", status_code=201)
 async def create_stall(
@@ -438,8 +447,8 @@ async def update_stall(
             owner = await User.get(stall.owner_id)
             if owner:
                 owner_updates = {}
-                if body.owner_email:
-                    existing = await User.find_one(User.email == body.owner_email, User.id != owner.id)
+                if body.owner_email and body.owner_email != owner.email:
+                    existing = await User.find_one(User.email == body.owner_email)
                     if existing:
                         raise HTTPException(status_code=400, detail="Email already taken")
                     owner_updates["email"] = body.owner_email
@@ -451,6 +460,8 @@ async def update_stall(
     update_data["updated_at"] = datetime.utcnow()
     if update_data:
         await stall.update({"$set": update_data})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
     return {"message": "Stall updated"}
 
 
@@ -463,6 +474,8 @@ async def toggle_stall(
     stall = await _owned_stall(stall_id, current_user)
     new_state = not stall.is_open
     await stall.update({"$set": {"is_open": new_state, "updated_at": datetime.utcnow()}})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
     return {"is_open": new_state}
 
 
@@ -481,6 +494,8 @@ async def update_categories(
         cats = ["Popular"] + cats
     stall = await _owned_stall(stall_id, current_user)
     await stall.update({"$set": {"menu_categories": cats, "updated_at": datetime.utcnow()}})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
     return {"menu_categories": cats}
 
 
@@ -521,6 +536,8 @@ async def delete_stall(
     await stall.delete()
     # Optionally delete menu items (or mark them deleted)
     await MenuItem.find(MenuItem.stall_id == stall.id).update({"$set": {"is_deleted": True}})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
     return {"message": "Stall deleted"}
 
 

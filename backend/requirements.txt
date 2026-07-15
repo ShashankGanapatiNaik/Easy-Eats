@@ -26,3 +26,4 @@ python-socketio==5.12.1
 aiofiles==24.1.0
 
 resend==2.0.0
+redis>=5.0.1

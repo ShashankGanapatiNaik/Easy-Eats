@@ -5,6 +5,7 @@ import socketio
 
 from app.core.config import settings
 from app.database import connect_db, close_db
+from app.services.redis_service import init_redis, close_redis
 from app.routes import auth, stalls, menu, orders, admin, reviews
 from app.routes.payments import router as payments_router
 from app.routes.wallet   import router as wallet_router
@@ -16,8 +17,10 @@ from app.socket_manager import sio
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_db()
+    await init_redis()
     yield
     await close_db()
+    await close_redis()
 
 app = FastAPI(title="Easy Eats API", version="2.0.0", lifespan=lifespan)
 

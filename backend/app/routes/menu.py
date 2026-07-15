@@ -132,6 +132,8 @@ async def add_item(
 
     item = MenuItem(stall_id=stall.id, **body.model_dump())
     await item.insert()
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{stall_id}")
     return {"message": "Item added", "id": str(item.id)}
 
 
@@ -145,6 +147,8 @@ async def update_item(
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     updates["updated_at"] = datetime.utcnow()
     await item.update({"$set": updates})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{item.stall_id}")
     return {"message": "Item updated"}
 
 
@@ -163,6 +167,8 @@ async def toggle_availability(
 
     new_state = not item.is_available
     await item.update({"$set": {"is_available": new_state, "updated_at": datetime.utcnow()}})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{item.stall_id}")
     return {"id": item_id, "is_available": new_state}
 
 
@@ -173,6 +179,8 @@ async def delete_item(
 ):
     item = await _get_item(item_id, current_user)
     await item.update({"$set": {"is_deleted": True, "updated_at": datetime.utcnow()}})
+    from app.services.redis_service import invalidate_cache
+    await invalidate_cache(f"stall:menu:{item.stall_id}")
     return {"message": "Item removed"}
 
 
