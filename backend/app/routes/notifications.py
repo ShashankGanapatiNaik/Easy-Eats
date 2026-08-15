@@ -12,8 +12,8 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 @router.get("")
 async def get_notifications(
     current_user: User = Depends(get_current_user),
-    limit: int = 15,
-    unread_only: bool = True,
+    limit: int = 20,
+    unread_only: bool = False,
 ):
     """Get active notifications for the current student."""
     query = [Notification.user_id == current_user.id]

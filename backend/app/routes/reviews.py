@@ -87,9 +87,8 @@ async def add_review(
             )
 
         # CHECK USER
-
-        if order.user_id != current_user.id:
-
+        is_owner = (order.user_id == current_user.id) or (current_user.id in getattr(order, "group_member_ids", []))
+        if not is_owner:
             raise HTTPException(
                 status_code=403,
                 detail="Invalid order"

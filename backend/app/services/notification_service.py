@@ -33,15 +33,16 @@ async def send_order_notification(
     """
     Saves a Notification document to DB (always).
     Sends SMS only if phone is provided.
-    Prevents duplicate notifications.
+    Prevents duplicate notifications for the same user.
     """
-    # Check for duplicate
+    # Check for duplicate per user
     existing = await Notification.find_one(
+        Notification.user_id == user_id,
         Notification.order_id == order_id,
         Notification.type == notification_type
     )
     if existing:
-        logger.info(f"Skipped duplicate notification {notification_type} for order {order_id}")
+        logger.info(f"Skipped duplicate notification {notification_type} for order {order_id} and user {user_id}")
         return False
 
     # Always save to database (populates the in-app notification bell)
@@ -54,7 +55,7 @@ async def send_order_notification(
         is_read=False
     )
     await notification.insert()
-    logger.info(f"Saved {notification_type} notification to DB for order {order_id}")
+    logger.info(f"Saved {notification_type} notification to DB for order {order_id} (user {user_id})")
 
     # Send SMS only if phone exists
     if not phone:
@@ -160,3 +161,26 @@ async def notify_order_ready(
         logger.error(f"Failed to send food ready email: {e}")
 
     return success
+
+
+async def notify_order_status_update(
+    user_id: ObjectId,
+    phone: str,
+    order_id: str,
+    stall_name: str,
+    status_label: str
+) -> bool:
+    """Send in-app notification when order status changes (Accepted, Preparing, Cancelled, etc.)."""
+    code = _pickup_code(order_id)
+    msg = (
+        f"Easy Eats 🍔\n\n"
+        f"Your order #{code} at {stall_name} is now: {status_label}.\n\n"
+        f"Check your tracking screen for live updates."
+    )
+    return await send_order_notification(
+        user_id=user_id,
+        order_id=ObjectId(order_id),
+        notification_type=f"order_{status_label.lower().replace(' ', '_')}",
+        phone=phone,
+        message=msg
+    )

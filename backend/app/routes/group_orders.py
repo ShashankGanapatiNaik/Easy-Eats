@@ -330,10 +330,14 @@ async def checkout_group(
     slot_start_local = now_local + timedelta(minutes=(active_orders // 10) * 5)
     slot_end_local = slot_start_local + timedelta(minutes=5)
 
+    group_member_ids = [m["user_id"] for m in session.members]
+
     order = Order(
         user_id=session.host_id,  # Hosted under host's user ID
         stall_id=stall.id,
         phone=current_user.phone,
+        group_member_ids=group_member_ids,
+        group_session_id=session.id,
         items=order_items,
         subtotal=group_subtotal,
         discount=0.0,
@@ -395,15 +399,19 @@ async def checkout_group(
     except Exception:
         pass
 
-    # Send notifications & trigger metrics
+    # Send notifications & trigger metrics for ALL group members
     await stall.update({"$inc": {"total_orders": 1}})
-    await notify_order_placed(
-        user_id=session.host_id,
-        phone=current_user.phone or "",
-        order_id=str(order.id),
-        stall_name=stall.name,
-        prep_min=prep_min
-    )
+    for member in session.members:
+        m_user_id = member["user_id"]
+        # Fetch user phone if current_user is host
+        m_phone = current_user.phone if str(m_user_id) == str(current_user.id) else ""
+        await notify_order_placed(
+            user_id=m_user_id,
+            phone=m_phone,
+            order_id=str(order.id),
+            stall_name=stall.name,
+            prep_min=prep_min
+        )
 
     return {
         "success": True,

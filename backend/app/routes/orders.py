@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime, timedelta, timezone
-from beanie.operators import NotIn
+from beanie.operators import NotIn, Or
 
 from app.models.order import Order, OrderStatus
 from app.models.stall import Stall
@@ -17,6 +17,7 @@ from app.services.ai_predictor import predict_prep_time
 from app.services.notification_service import (
     notify_order_placed,
     notify_order_ready,
+    notify_order_status_update,
 )
 from app.socket_manager import sio
 
@@ -350,7 +351,9 @@ async def place_order(
 # ─────────────────────────────────────────────────────────────────────────────
 @router.get("/my")
 async def get_my_orders(current_user: User = Depends(get_current_user)):
-    orders = await Order.find(Order.user_id == current_user.id).sort(-Order.placed_at).to_list()
+    orders = await Order.find(
+        Or(Order.user_id == current_user.id, Order.group_member_ids == current_user.id)
+    ).sort(-Order.placed_at).to_list()
     res = []
     for o in orders:
         stall = await Stall.get(o.stall_id)
@@ -509,14 +512,25 @@ async def update_order_status(id: str, status: OrderStatus, prep_time: Optional[
     from app.services.queue_service import broadcast_queue_density
     await broadcast_queue_density(stall.id)
 
-    # ── SMS notification when Ready ──────────────────────────────────────────
-    if status == OrderStatus.ready:
-        await notify_order_ready(
-            user_id=order.user_id,
-            phone=order.phone,
-            order_id=str(order.id),
-            stall_name=stall.name
-        )
+    # ── Notifications for user & group members on status changes ──────────
+    target_user_ids = list(set([order.user_id] + list(getattr(order, "group_member_ids", []) or [])))
+    for uid in target_user_ids:
+        u_phone = order.phone if uid == order.user_id else ""
+        if status == OrderStatus.ready:
+            await notify_order_ready(
+                user_id=uid,
+                phone=u_phone,
+                order_id=str(order.id),
+                stall_name=stall.name
+            )
+        elif status in (OrderStatus.accepted, OrderStatus.preparing, OrderStatus.almost_ready, OrderStatus.cancelled):
+            await notify_order_status_update(
+                user_id=uid,
+                phone=u_phone,
+                order_id=str(order.id),
+                stall_name=stall.name,
+                status_label=status.value
+            )
 
     prediction = await predict_dynamic_remaining_time(order)
 

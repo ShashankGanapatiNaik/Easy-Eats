@@ -119,12 +119,11 @@ export default function Home() {
   const fetchNotifications = async () => {
     if (user.role !== "student") return;
     try {
-      const res = await getNotifications({ unread_only: true });
+      const res = await getNotifications();
       const list = res.data || [];
       setNotifs(list);
       
-      const lastOpened = parseInt(localStorage.getItem("last_opened_notif") || "0");
-      const unread = list.filter(n => new Date(n.sent_at).getTime() > lastOpened).length;
+      const unread = list.filter(n => !n.is_read).length;
       setUnreadCount(unread);
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
@@ -357,11 +356,15 @@ export default function Home() {
             {user.role === "student" && (
               <div className="relative">
                 <button 
-                  onClick={() => {
-                    setShowNotifDropdown(!showNotifDropdown);
-                    if (!showNotifDropdown) {
+                  onClick={async () => {
+                    const nextShow = !showNotifDropdown;
+                    setShowNotifDropdown(nextShow);
+                    if (nextShow && unreadCount > 0) {
                       setUnreadCount(0);
-                      localStorage.setItem("last_opened_notif", Date.now().toString());
+                      try {
+                        await markAllNotificationsRead();
+                        fetchNotifications();
+                      } catch {}
                     }
                   }}
                   className={`w-10 h-10 rounded-full bg-white border border-gray-200 text-zinc-700 hover:text-zinc-950 flex items-center justify-center shadow-sm hover:scale-105 transition-all relative ${unreadCount > 0 ? "animate-wiggle" : ""}`}
@@ -385,10 +388,8 @@ export default function Home() {
                         <button 
                           onClick={async () => {
                             try {
-                              setNotifs([]);
                               setUnreadCount(0);
                               await markAllNotificationsRead();
-                              localStorage.setItem("last_opened_notif", Date.now().toString());
                               fetchNotifications();
                             } catch {}
                           }}
@@ -405,7 +406,17 @@ export default function Home() {
                       ) : (
                         notifs.map((n) => {
                           const isReady = n.type === "order_ready";
-                          const isNew = new Date(n.sent_at).getTime() > parseInt(localStorage.getItem("last_opened_notif") || "0");
+                          const isCancelled = n.type === "order_cancelled";
+                          const isPreparing = n.type === "order_preparing";
+                          const isUnread = !n.is_read;
+
+                          let title = "Order Update";
+                          let icon = "🔔";
+                          if (isReady) { title = "Your Order is Ready!"; icon = "🎉"; }
+                          else if (n.type === "order_placed") { title = "Order Confirmed"; icon = "🍔"; }
+                          else if (isPreparing) { title = "Food Being Prepared"; icon = "👨‍🍳"; }
+                          else if (isCancelled) { title = "Order Cancelled"; icon = "❌"; }
+
                           return (
                             <div 
                               key={n.id} 
@@ -413,12 +424,12 @@ export default function Home() {
                                 setShowNotifDropdown(false);
                                 navigate(`/track/${n.order_id}`);
                               }}
-                              className={`p-3 rounded-2xl text-left transition-all cursor-pointer flex gap-2.5 items-start border ${isNew ? "bg-lime-50/50 border-lime-200" : "bg-white border-transparent hover:bg-gray-50/50"}`}
+                              className={`p-3 rounded-2xl text-left transition-all cursor-pointer flex gap-2.5 items-start border ${isUnread ? "bg-lime-50/50 border-lime-200" : "bg-white border-transparent hover:bg-gray-50/50"}`}
                             >
-                              <span className="text-xl flex-shrink-0">{isReady ? "🎉" : "🍔"}</span>
+                              <span className="text-xl flex-shrink-0">{icon}</span>
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-xs text-zinc-900 leading-tight">
-                                  {isReady ? "Your Order is Ready!" : "Order Confirmed"}
+                                  {title}
                                 </p>
                                 <p className="text-[11px] text-gray-500 mt-1 leading-normal truncate">
                                   {n.message.split("\n\n").slice(1).join(" ") || n.message}
@@ -427,7 +438,7 @@ export default function Home() {
                                   {new Date(n.sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                               </div>
-                              {isNew && <span className="w-1.5 h-1.5 rounded-full bg-lime-500 flex-shrink-0 mt-1.5" />}
+                              {isUnread && <span className="w-1.5 h-1.5 rounded-full bg-lime-500 flex-shrink-0 mt-1.5" />}
                             </div>
                           );
                         })

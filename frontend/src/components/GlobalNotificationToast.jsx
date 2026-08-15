@@ -20,23 +20,23 @@ export default function GlobalNotificationToast() {
     }
   })();
 
+  const shownNotifIds = useRef(new Set());
+
   const fetchUnreadNotifications = async () => {
     if (!token || !isStudent) return;
     try {
-      const res = await getNotifications();
+      const res = await getNotifications({ unread_only: true });
       const unread = res.data || [];
       
-      if (unread.length > 0) {
-        const nextToast = unread[0]; // Display the latest notification
+      const newNotif = unread.find(n => !shownNotifIds.current.has(n.id));
+      if (newNotif) {
+        shownNotifIds.current.add(newNotif.id);
         
         // Show the toast popup
-        setToast(nextToast);
+        setToast(newNotif);
         
         // Play notification sound
         audioRef.current?.play().catch(() => {});
-        
-        // Mark it read immediately in backend so we don't fetch it next time
-        await markNotificationRead(nextToast.id);
       }
     } catch (e) {
       console.error("Failed to poll notifications", e);

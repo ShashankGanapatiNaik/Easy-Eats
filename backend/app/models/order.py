@@ -47,6 +47,8 @@ class Order(Document):
     user_id: ObjectId
     stall_id: ObjectId
     phone: Optional[str] = None
+    group_member_ids: List[ObjectId] = Field(default_factory=list)
+    group_session_id: Optional[ObjectId] = None
 
     # ── Order items ────────────────────────────────────────────
     items: List[dict] = Field(default_factory=list)
@@ -82,6 +84,7 @@ class Order(Document):
             "stall_id",
             "status",
             "placed_at",
+            "group_member_ids",
             [("stall_id", 1), ("status", 1)],
             [("user_id", 1), ("placed_at", -1)],
         ]
