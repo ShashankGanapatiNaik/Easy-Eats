@@ -21,9 +21,21 @@ function pickupCode(orderId) {
   return orderId.slice(-4).toUpperCase();
 }
 
+function parseIsoToMs(isoStr) {
+  if (!isoStr) return null;
+  let s = String(isoStr).trim();
+  if (!s.endsWith("Z") && !s.includes("+") && !s.includes("-", 10)) {
+    s += "Z";
+  }
+  const ms = new Date(s).getTime();
+  return isNaN(ms) ? null : ms;
+}
+
 function fmt12(iso) {
   if (!iso) return "--:--";
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const ms = parseIsoToMs(iso);
+  if (!ms) return "--:--";
+  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 // Live countdown hook — counts down seconds from a target ISO datetime
@@ -33,7 +45,8 @@ function useCountdown(targetIso) {
   useEffect(() => {
     if (!targetIso) return;
     const update = () => {
-      const diff = Math.max(0, Math.floor((new Date(targetIso) - Date.now()) / 1000));
+      const targetMs = parseIsoToMs(targetIso);
+      const diff = targetMs ? Math.max(0, Math.floor((targetMs - Date.now()) / 1000)) : 0;
       setSecs(diff);
     };
     update();
@@ -48,8 +61,10 @@ function useCountdown(targetIso) {
 
 // ── Main OrderCard ────────────────────────────────────────────────────────────
 export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
-  const [loading,      setLoading]      = useState(false);
-  const [localOrder,   setLocalOrder]   = useState(order);
+  const [loading,       setLoading]       = useState(false);
+  const [localOrder,    setLocalOrder]    = useState(order);
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [prepInput,     setPrepInput]     = useState(order.predicted_prep_min || 10);
 
   // sync if parent refreshes
   useEffect(() => setLocalOrder(order), [order]);
@@ -66,18 +81,24 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
   const style     = STATUS_STYLE[localOrder.status] || STATUS_STYLE.Placed;
   const code       = pickupCode(localOrder.id);
 
-  // ── Accept Order: transition directly to Preparing ─────────────────────────
-  const handleAcceptOrder = async () => {
+  // ── Update or Set Prep Time ───────────────────────────────────────────────
+  const handleUpdatePrepTime = async (mins) => {
     setLoading(true);
+    setShowTimeModal(false);
+    const targetMins = Number(mins) || 10;
+    const readyIso = new Date(Date.now() + targetMins * 60000).toISOString();
+    const targetStatus = isPending ? "Preparing" : localOrder.status;
 
-    const prepMins = localOrder.predicted_prep_min || 10;
-    const readyIso = new Date(Date.now() + prepMins * 60000).toISOString();
-    const updated = { ...localOrder, status: "Preparing", estimated_ready_iso: readyIso };
+    const updated = { 
+      ...localOrder, 
+      status: targetStatus, 
+      estimated_ready_iso: readyIso,
+      predicted_prep_min: targetMins
+    };
     setLocalOrder(updated);
 
     try {
-      // Omit prepTime so backend automatically uses configured prediction prep time
-      const res = await updateStatus(localOrder.id, "Preparing");
+      const res = await updateStatus(localOrder.id, targetStatus, targetMins);
       const serverData = res.data;
       const merged = {
         ...updated,
@@ -89,10 +110,16 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
       setLocalOrder(merged);
       onUpdated?.(merged);
     } catch {
-      setLocalOrder(order); // revert to original prop
+      setLocalOrder(order); // revert
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Accept Order directly with default AI time ────────────────────────────
+  const handleAcceptOrder = async () => {
+    const defaultMins = localOrder.predicted_prep_min || 10;
+    await handleUpdatePrepTime(defaultMins);
   };
 
   // ── Ready for Pickup ──────────────────────────────────────────────────────
@@ -151,7 +178,6 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
   return (
     <>
-
       <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all duration-300
         ${isNew     ? "border-lime-400 ring-2 ring-lime-400/30 shadow-lime-100 shadow-md" : ""}
         ${isOverdue ? "border-red-300" : ""}
@@ -292,38 +318,100 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             </div>
           )}
 
-          {/* ── Action buttons — Simplified 2-button flow ── */}
-          <div className="flex gap-2">
-            {/* Pending → Accept Order (opens prep modal → sets Preparing) */}
+          {/* ── Custom Prep Time Picker / Time Adjustment Panel ── */}
+          {showTimeModal && (
+            <div className="mb-3 p-3 bg-zinc-900 text-white rounded-2xl animate-fade-in space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="text-xs font-bold text-lime-400">⏱️ {isPending ? "Set Prep Time" : "Extend / Update Prep Time"}</p>
+                <button onClick={() => setShowTimeModal(false)} className="text-xs text-gray-400 hover:text-white">✕</button>
+              </div>
+              
+              {/* Quick minute pills */}
+              <div className="flex gap-1.5 flex-wrap">
+                {[5, 10, 15, 20, 30, 45].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setPrepInput(m); handleUpdatePrepTime(m); }}
+                    className="px-2.5 py-1 text-xs font-bold bg-zinc-800 hover:bg-lime-500 hover:text-zinc-900 rounded-lg transition-colors border border-zinc-700"
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom input row */}
+              <div className="flex gap-2 pt-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={prepInput}
+                  onChange={(e) => setPrepInput(e.target.value)}
+                  placeholder="Mins"
+                  className="w-20 bg-zinc-800 border border-zinc-700 text-white rounded-xl px-2.5 py-1 text-xs font-bold outline-none focus:border-lime-500"
+                />
+                <button
+                  onClick={() => handleUpdatePrepTime(prepInput)}
+                  className="flex-1 bg-lime-500 hover:bg-lime-600 text-zinc-900 text-xs font-bold py-1 px-3 rounded-xl transition-all"
+                >
+                  Set {prepInput} Mins
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Action buttons ── */}
+          <div className="flex gap-2 flex-wrap">
+            {/* Pending → Accept Order */}
             {isPending && (
-              <button
-                onClick={handleAcceptOrder}
-                disabled={loading}
-                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
-                  disabled:opacity-50 flex items-center justify-center gap-2
-                  bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
-              >
-                {loading
-                  ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  : "✓ Accept Order"
-                }
-              </button>
+              <>
+                <button
+                  onClick={handleAcceptOrder}
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                    disabled:opacity-50 flex items-center justify-center gap-1.5
+                    bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
+                >
+                  {loading
+                    ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                    : `✓ Accept (${localOrder.predicted_prep_min || 10}m)`
+                  }
+                </button>
+
+                <button
+                  onClick={() => setShowTimeModal(!showTimeModal)}
+                  className="px-3 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition-all flex items-center gap-1"
+                  title="Choose custom preparation time"
+                >
+                  ⏱️ Custom
+                </button>
+              </>
             )}
 
-            {/* Preparing / Almost Ready → Ready for Pickup */}
+            {/* Preparing / Almost Ready → Ready for Pickup + Extend Time option */}
             {isPreparing && (
-              <button
-                onClick={handleReadyForPickup}
-                disabled={loading}
-                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
-                  disabled:opacity-50 flex items-center justify-center gap-2
-                  bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
-              >
-                {loading
-                  ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  : "🍽️ Ready for Pickup"
-                }
-              </button>
+              <>
+                <button
+                  onClick={handleReadyForPickup}
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                    disabled:opacity-50 flex items-center justify-center gap-2
+                    bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
+                >
+                  {loading
+                    ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                    : "🍽️ Ready for Pickup"
+                  }
+                </button>
+
+                <button
+                  onClick={() => setShowTimeModal(!showTimeModal)}
+                  className="px-3 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs transition-all flex items-center gap-1"
+                  title="Adjust or extend prep time"
+                >
+                  ⏱️ Extend Time
+                </button>
+              </>
             )}
 
             {/* Ready → Mark Collected */}
@@ -347,7 +435,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
               <button
                 onClick={handleCancel}
                 disabled={loading}
-                className="px-4 py-3 rounded-xl bg-gray-100 hover:bg-red-100
+                className="px-3.5 py-3 rounded-xl bg-gray-100 hover:bg-red-100
                            text-gray-400 hover:text-red-500 font-bold text-sm transition-all"
               >
                 ✕

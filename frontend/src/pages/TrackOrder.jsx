@@ -29,11 +29,22 @@ function fmtCountdown(sec) {
   return `${m}:${s}`;
 }
 
+function parseIsoToMs(isoStr) {
+  if (!isoStr) return null;
+  let s = String(isoStr).trim();
+  if (!s.endsWith("Z") && !s.includes("+") && !s.includes("-", 10)) {
+    s += "Z";
+  }
+  const ms = new Date(s).getTime();
+  return isNaN(ms) ? null : ms;
+}
+
 function formatTime(iso, fallback) {
   if (!iso) return fallback || "--:--";
   try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return fallback || "--:--";
+    const ms = parseIsoToMs(iso);
+    if (!ms) return fallback || "--:--";
+    const d = new Date(ms);
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch (e) {
     return fallback || "--:--";
@@ -91,6 +102,7 @@ export default function TrackOrder() {
 
   /* ── fetch helper ────────────────────────────────────────────────────── */
   const applyData = useCallback((data) => {
+    if (!data) return;
     const newSt  = data.status;
     const oldSt  = prevStatus.current;
 
@@ -100,14 +112,21 @@ export default function TrackOrder() {
     }
     prevStatus.current = newSt;
 
-    setOrder(data);
-    // Calculate remaining seconds from target ready timestamp for smooth syncing
-    if (data.estimated_ready_iso) {
-      const readyMs = new Date(data.estimated_ready_iso).getTime();
-      const nowMs = Date.now();
-      const diffSec = Math.max(0, Math.floor((readyMs - nowMs) / 1000));
+    setOrder((prev) => ({
+      ...prev,
+      ...data,
+      id: data.id || data.order_id || prev.id,
+      items: (data.items && data.items.length > 0) ? data.items : prev.items,
+      total: data.total !== undefined && data.total !== null ? data.total : prev.total,
+      stall_name: data.stall_name || prev.stall_name,
+    }));
+
+    const targetIso = data.estimated_ready_iso;
+    const readyMs = parseIsoToMs(targetIso);
+    if (readyMs) {
+      const diffSec = Math.max(0, Math.floor((readyMs - Date.now()) / 1000));
       setCountdown(diffSec);
-    } else {
+    } else if (data.remaining_min !== undefined) {
       const mins = Number(data.remaining_min) || 0;
       setCountdown(mins * 60);
     }

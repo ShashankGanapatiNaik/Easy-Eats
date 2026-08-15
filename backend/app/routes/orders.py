@@ -722,6 +722,16 @@ async def predict_dynamic_remaining_time(order: Order) -> dict:
         
     remaining_min = max(1, int(round(raw_remaining)))
     
+    # If explicit estimated_ready_iso exists (e.g. set by kitchen), use exact remaining mins from target time
+    if order.estimated_ready_iso:
+        try:
+            target_dt = datetime.fromisoformat(order.estimated_ready_iso.replace("Z", "+00:00")).replace(tzinfo=timezone.utc)
+            now_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
+            calc_rem = max(0, int(round((target_dt - now_dt).total_seconds() / 60.0)))
+            remaining_min = calc_rem
+        except Exception:
+            pass
+
     # If status is almost ready, remaining time shouldn't exceed 3 mins
     if order.status == OrderStatus.almost_ready:
         remaining_min = min(remaining_min, 3)
@@ -801,7 +811,7 @@ async def predict_dynamic_remaining_time(order: Order) -> dict:
         "delay_risk": delay_risk,
         "avg_completion_speed": avg_speed_str,
         "eta_ready_time": eta_ready_time,
-        "estimated_ready_iso": (datetime.utcnow() + timedelta(minutes=remaining_min)).replace(tzinfo=timezone.utc).isoformat(),
+        "estimated_ready_iso": order.estimated_ready_iso or (datetime.utcnow() + timedelta(minutes=remaining_min)).replace(tzinfo=timezone.utc).isoformat(),
         # Smart Pickup fields
         "queue_time_min": queue_time_min,
         "walking_time_min": walking_time_min,
