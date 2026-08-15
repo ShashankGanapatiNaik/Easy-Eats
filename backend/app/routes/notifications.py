@@ -35,6 +35,18 @@ async def get_notifications(
         for n in notifications
     ]
 
+@router.put("/read-all")
+async def mark_all_read(
+    current_user: User = Depends(get_current_user),
+):
+    """Mark all notifications of current user as read."""
+    await Notification.find(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).update({"$set": {"is_read": True}})
+    
+    return {"message": "All notifications marked as read"}
+
 @router.put("/{notification_id}/read")
 async def mark_read(
     notification_id: str,
@@ -50,15 +62,3 @@ async def mark_read(
     notification.is_read = True
     await notification.save()
     return {"message": "Notification marked as read"}
-
-@router.put("/read-all")
-async def mark_all_read(
-    current_user: User = Depends(get_current_user),
-):
-    """Mark all notifications of current user as read."""
-    await Notification.find(
-        Notification.user_id == current_user.id,
-        Notification.is_read == False
-    ).update({"$set": {"is_read": True}})
-    
-    return {"message": "All notifications marked as read"}

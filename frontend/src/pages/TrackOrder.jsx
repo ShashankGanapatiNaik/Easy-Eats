@@ -101,9 +101,16 @@ export default function TrackOrder() {
     prevStatus.current = newSt;
 
     setOrder(data);
-    // Reset countdown from socket/poll payload
-    const mins = Number(data.remaining_min) || 0;
-    setCountdown(mins * 60);
+    // Calculate remaining seconds from target ready timestamp for smooth syncing
+    if (data.estimated_ready_iso) {
+      const readyMs = new Date(data.estimated_ready_iso).getTime();
+      const nowMs = Date.now();
+      const diffSec = Math.max(0, Math.floor((readyMs - nowMs) / 1000));
+      setCountdown(diffSec);
+    } else {
+      const mins = Number(data.remaining_min) || 0;
+      setCountdown(mins * 60);
+    }
   }, []);
 
   const fetchTrack = useCallback(async () => {
