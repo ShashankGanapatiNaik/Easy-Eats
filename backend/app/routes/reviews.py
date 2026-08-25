@@ -273,21 +273,13 @@ async def get_reviews(
     # =====================================================
 
     reviews = await Review.find(
-
-        Review.stall_id == ObjectId(stall_id)
-
+        Review.stall_id == stall.id
     ).sort(
-
         -Review.created_at
-
     ).skip(
-
         skip
-
     ).limit(
-
         limit
-
     ).to_list()
 
     # =====================================================
@@ -311,9 +303,7 @@ async def get_reviews(
                 str(review.user_id),
 
             "user_name":
-
-                user.full_name
-                if user else "User",
+                (user.name if hasattr(user, "name") else getattr(user, "full_name", "User")) if user else "User",
 
             "rating":
                 review.rating,

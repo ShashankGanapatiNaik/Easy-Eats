@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import { getStall, toggleStall, stallOrders, SOCKET_URL } from "../api";
+import { useTheme } from "../context/ThemeContext";
 import OrderCard      from "../components/dashboard/OrderCard";
 import MenuManager    from "../components/dashboard/MenuManager";
 import KitchenInsights from "../components/dashboard/KitchenInsights";
@@ -17,6 +18,7 @@ function fmt(iso) {
 export default function KitchenDashboard() {
   const navigate    = useNavigate();
   const { id: stallId } = useParams();
+  const { theme, toggleTheme } = useTheme();
   
   const [tab,          setTab]         = useState("orders");
   const [stall,        setStall]       = useState(null);
@@ -146,109 +148,141 @@ export default function KitchenDashboard() {
     .sort((a, b) => new Date(a.placed_at) - new Date(b.placed_at));
 
   if (loading) return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-lime-500 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center">
+      <div className="w-12 h-12 border-4 border-lime-500 border-t-transparent rounded-full animate-spin mb-3" />
+      <p className="text-xs font-bold text-zinc-400">Loading Kitchen Live Dashboard...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-20">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-200 pb-20">
       <audio ref={audioRef} src="/notification.mp3" preload="auto" />
 
       {/* ── Top Navbar ──────────────────────────────────────────────────── */}
-      <div className="bg-zinc-900 text-white px-4 py-3 sticky top-0 z-30
-                      flex items-center justify-between shadow-lg">
+      <header className="bg-zinc-900/95 dark:bg-zinc-900/90 backdrop-blur-md text-white px-4 py-3 sticky top-0 z-30 flex items-center justify-between border-b border-zinc-800 shadow-xl">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/admin")}
-            className="w-8 h-8 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-full transition-colors mr-2"
+            onClick={() => {
+              const u = (() => { try { return JSON.parse(localStorage.getItem("user_data") || "{}"); } catch { return {}; } })();
+              if (u.role === "admin") {
+                navigate("/admin");
+              } else if (window.history.length > 2) {
+                navigate(-1);
+              } else {
+                navigate("/");
+              }
+            }}
+            className="w-9 h-9 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 rounded-xl transition-all text-zinc-300 hover:text-white font-bold"
+            title="Go Back"
           >
             ←
           </button>
-          {/* Open/Close pill */}
+          
+          {/* Open/Close status indicator */}
           <button
             onClick={handleToggleStall}
             className={`w-3 h-3 rounded-full flex-shrink-0 transition-colors ${
-              stall?.is_open ? "bg-lime-400 animate-pulse" : "bg-red-400"
+              stall?.is_open ? "bg-lime-400 animate-pulse" : "bg-rose-500"
             }`}
+            title={stall?.is_open ? "Stall is Open" : "Stall is Closed"}
           />
+
           <div>
-            <h1 className="font-bold text-sm leading-tight">{stallLabel}</h1>
-            <p className="text-zinc-400 text-xs">
-              {stall?.is_open ? "Open · " : "Closed · "}
-              {lastUpdated ? `Synced ${fmt(lastUpdated.toISOString())}` : "Loading…"}
+            <h1 className="font-black text-sm sm:text-base leading-tight tracking-tight">{stallLabel}</h1>
+            <p className="text-zinc-400 text-[11px] font-medium flex items-center gap-1.5">
+              <span className={stall?.is_open ? "text-lime-400 font-bold" : "text-rose-400 font-bold"}>
+                {stall?.is_open ? "OPEN" : "CLOSED"}
+              </span>
+              <span>•</span>
+              <span>{lastUpdated ? `Synced ${fmt(lastUpdated.toISOString())}` : "Loading…"}</span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Stall Toggle button */}
           <button
             onClick={handleToggleStall}
-            className={`text-xs font-bold px-4 py-1.5 rounded-full transition-all ${
+            className={`text-xs font-black px-3.5 py-1.5 rounded-xl transition-all ${
               stall?.is_open
-                ? "bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                : "bg-lime-500/20 text-lime-300 hover:bg-lime-500/30"
+                ? "bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30"
+                : "bg-lime-500/20 text-lime-300 hover:bg-lime-500/30 border border-lime-500/30"
             }`}
           >
             {stall?.is_open ? "Close Stall" : "Open Stall"}
           </button>
+
+          {/* Theme Switcher Button */}
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 flex items-center justify-center text-sm transition-all hover:scale-105 active:scale-95"
+            title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+
           <button
             onClick={handleLogout}
-            className="text-zinc-400 hover:text-red-400 text-xs px-2 transition-all"
+            className="text-zinc-400 hover:text-rose-400 text-xs font-bold px-2 py-1.5 transition-all"
           >
             Logout
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* ── Stats Strip ─────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3
-                      grid grid-cols-3 gap-0 divide-x divide-gray-100">
-        {[
-          { label: "Active",  value: activeCount,  color: "text-lime-600"  },
-          { label: "Pending", value: pendingCount, color: "text-amber-500" },
-          { label: "Ready",   value: readyCount,   color: "text-blue-600"  },
-        ].map((s) => (
-          <div key={s.label} className="text-center py-1">
-            <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-            <p className="text-xs text-gray-400 font-medium">{s.label}</p>
+      {/* ── Stats Cards Grid ───────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 py-3 transition-colors">
+        <div className="max-w-2xl mx-auto xl:max-w-5xl grid grid-cols-3 gap-3">
+          <div className="bg-lime-500/10 dark:bg-lime-500/10 border border-lime-500/20 rounded-2xl p-3 text-center transition-all">
+            <p className="text-2xl sm:text-3xl font-black text-lime-600 dark:text-lime-400">{activeCount}</p>
+            <p className="text-[11px] font-bold text-lime-700 dark:text-lime-300 uppercase tracking-wider mt-0.5">Active</p>
           </div>
-        ))}
+          <div className="bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-center transition-all">
+            <p className="text-2xl sm:text-3xl font-black text-amber-500 dark:text-amber-400">{pendingCount}</p>
+            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-300 uppercase tracking-wider mt-0.5">Pending</p>
+          </div>
+          <div className="bg-blue-500/10 dark:bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 text-center transition-all">
+            <p className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">{readyCount}</p>
+            <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mt-0.5">Ready</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Tab Bar ──────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-100 px-4 flex gap-1 sticky top-[57px] z-20 overflow-x-auto scrollbar-hide">
-        {[
-          { key: "orders",   label: `🍳 Orders${activeCount > 0 ? ` (${activeCount})` : ""}` },
-          { key: "menu",     label: "🍽️ Menu" },
-          { key: "insights", label: "📊 Insights" },
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`py-3 px-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
-              tab === key
-                ? "border-lime-500 text-lime-600"
-                : "border-transparent text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800 px-4 sticky top-[61px] z-20 overflow-x-auto scrollbar-hide">
+        <div className="max-w-2xl mx-auto xl:max-w-5xl flex gap-2">
+          {[
+            { key: "orders",   label: `🍳 Orders${activeCount > 0 ? ` (${activeCount})` : ""}` },
+            { key: "menu",     label: "🍽️ Menu Management" },
+            { key: "insights", label: "📊 Sales & Insights" },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`py-3.5 px-5 text-xs font-black border-b-2 transition-all whitespace-nowrap ${
+                tab === key
+                  ? "border-lime-500 text-lime-600 dark:text-lime-400"
+                  : "border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="px-4 py-4 max-w-2xl mx-auto xl:max-w-5xl">
+      <div className="px-4 py-6 max-w-2xl mx-auto xl:max-w-5xl">
 
         {/* ══════════════════════════════════════════════════════════════
             ORDERS TAB
         ══════════════════════════════════════════════════════════════ */}
         {tab === "orders" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
 
-            {/* Search + filter row */}
-            <div className="flex gap-2">
+            {/* Search + refresh row */}
+            <div className="flex gap-2.5">
               <div className="relative flex-1">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400"
                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -256,18 +290,16 @@ export default function KitchenDashboard() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by order ID or item…"
-                  className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm
-                             outline-none focus:border-lime-500 transition-all bg-white"
+                  placeholder="Search by order ID or item..."
+                  className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-medium outline-none focus:border-lime-500 dark:focus:border-lime-400 text-zinc-900 dark:text-white placeholder-zinc-400 transition-all shadow-sm"
                 />
               </div>
               <button
                 onClick={() => fetchOrders(true)}
-                className="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-400
-                           hover:text-zinc-900 hover:border-gray-300 transition-all text-sm"
-                title="Refresh"
+                className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:border-lime-500 transition-all text-xs font-bold shadow-sm flex items-center gap-1.5"
+                title="Refresh orders"
               >
-                ↻
+                <span>↻</span> Refresh
               </button>
             </div>
 
@@ -284,11 +316,10 @@ export default function KitchenDashboard() {
                 <button
                   key={key}
                   onClick={() => setFilter(key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap
-                              flex-shrink-0 transition-all ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex-shrink-0 transition-all ${
                     filterStatus === key
-                      ? "bg-zinc-900 text-white"
-                      : "bg-white border border-gray-200 text-gray-500 hover:border-lime-400"
+                      ? "bg-zinc-900 text-white dark:bg-lime-500 dark:text-zinc-950 shadow-md"
+                      : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-lime-400"
                   }`}
                 >
                   {label}
@@ -296,20 +327,23 @@ export default function KitchenDashboard() {
               ))}
             </div>
 
-            {/* Auto-refresh indicator */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <div className="w-1.5 h-1.5 bg-lime-500 rounded-full animate-pulse" />
-              Auto-refreshing every 10s
+            {/* Auto-refresh status bar */}
+            <div className="flex items-center justify-between text-xs text-zinc-400 px-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-lime-500 rounded-full animate-pulse" />
+                <span className="font-semibold text-[11px]">Live order sync active (5s)</span>
+              </div>
+              <span className="text-[11px] font-medium">Showing {displayOrders.length} order{displayOrders.length !== 1 ? "s" : ""}</span>
             </div>
 
             {/* Order cards grid */}
             {displayOrders.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
+              <div className="text-center py-20 bg-white dark:bg-zinc-900/60 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 p-8 shadow-sm">
                 <p className="text-5xl mb-3">🧑‍🍳</p>
-                <p className="font-semibold text-lg">
+                <p className="font-extrabold text-lg text-zinc-900 dark:text-white">
                   {filterStatus === "active" ? "No active orders right now" : `No ${filterStatus} orders`}
                 </p>
-                <p className="text-sm mt-1">New orders appear automatically</p>
+                <p className="text-zinc-500 dark:text-zinc-400 text-xs mt-1">New incoming orders will appear here automatically with audio alert</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -331,29 +365,29 @@ export default function KitchenDashboard() {
             MENU TAB
         ══════════════════════════════════════════════════════════════ */}
         {tab === "menu" && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Stall status banner */}
-            <div className={`rounded-2xl p-4 border flex items-center justify-between ${
+            <div className={`rounded-3xl p-5 border flex items-center justify-between shadow-sm transition-all ${
               stall?.is_open
-                ? "bg-lime-50 border-lime-200"
-                : "bg-red-50 border-red-200"
+                ? "bg-lime-500/10 border-lime-500/30 text-lime-900 dark:text-lime-200"
+                : "bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200"
             }`}>
-              <div>
-                <p className={`font-bold text-sm ${stall?.is_open ? "text-lime-800" : "text-red-700"}`}>
-                  {stall?.is_open ? "🟢 Stall is Open" : "🔴 Stall is Closed"}
+              <div className="space-y-1">
+                <p className={`font-extrabold text-sm flex items-center gap-2 ${stall?.is_open ? "text-lime-700 dark:text-lime-300" : "text-rose-700 dark:text-rose-300"}`}>
+                  <span>{stall?.is_open ? "🟢 Stall is Open for Orders" : "🔴 Stall is Currently Closed"}</span>
                 </p>
-                <p className={`text-xs mt-0.5 ${stall?.is_open ? "text-lime-600" : "text-red-500"}`}>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">
                   {stall?.is_open
-                    ? "Students can browse and order from your stall"
-                    : "Students cannot place orders right now"}
+                    ? "Students can browse your menu and place new orders online."
+                    : "Your menu is paused; students cannot place orders right now."}
                 </p>
               </div>
               <button
                 onClick={handleToggleStall}
-                className={`text-xs font-bold px-4 py-2 rounded-full transition-all ${
+                className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-sm ${
                   stall?.is_open
-                    ? "bg-red-100 text-red-600 hover:bg-red-200"
-                    : "bg-lime-500 text-zinc-900 hover:bg-lime-600"
+                    ? "bg-rose-500 hover:bg-rose-600 text-white"
+                    : "bg-lime-500 hover:bg-lime-400 text-zinc-950"
                 }`}
               >
                 {stall?.is_open ? "Close Stall" : "Open Stall"}
@@ -377,3 +411,4 @@ export default function KitchenDashboard() {
     </div>
   );
 }
+

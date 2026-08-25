@@ -110,62 +110,162 @@ ITEM EXTRACTION for order intent:
 Always keep "message" friendly, helpful, and concise."""
 
 
-# ── Groq API call ──────────────────────────────────────────────────────────────
+# ── Groq API call with rule-based fallback ─────────────────────────────────────
 
-async def call_groq(messages: list, system: str) -> dict:
-    """Call Groq API and return parsed JSON response."""
-    groq_messages = [{"role": "system", "content": system}]
+def rule_based_fallback(last_message: str) -> dict:
+    """Fallback NLP parser when LLM API is unavailable or unconfigured."""
+    import re
+    msg = (last_message or "").lower().strip()
 
-    # Ensure alternating roles (Groq requirement)
-    valid: list = []
-    for m in messages:
-        if not valid:
-            valid.append(m)
-        elif m["role"] != valid[-1]["role"]:
-            valid.append(m)
-        else:
-            valid[-1]["content"] += "\n" + m["content"]
-    groq_messages.extend(valid)
-
-    # Ensure starts with user role after system
-    if len(groq_messages) > 1 and groq_messages[1]["role"] != "user":
-        groq_messages = [groq_messages[0]] + [m for m in groq_messages[1:] if m["role"] == "user"]
-
-    async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(
-            GROQ_URL,
-            headers={
-                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-                "Content-Type":  "application/json",
-            },
-            json={
-                "model":           "llama-3.1-8b-instant",
-                "messages":        groq_messages,
-                "response_format": {"type": "json_object"},
-                "temperature":     0.2,
-                "max_tokens":      512,
-            },
-        )
-
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"AI API error {resp.status_code}: {resp.text[:200]}")
-
-    raw = resp.json()["choices"][0]["message"]["content"]
-    try:
-        cleaned = raw.strip()
-        if cleaned.startswith("```"):
-            parts = cleaned.split("```")
-            cleaned = parts[1] if len(parts) > 1 else cleaned
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:]
-        return json.loads(cleaned.strip())
-    except Exception:
+    # ── Wallet top-up (e.g. "add 500", "top up 200") ──────────────────────────
+    topup_match = re.search(r'(?:add|topup|top-up|top up)\s*(?:money|wallet)?\s*₹?\s*(\d+)', msg)
+    if topup_match:
+        amt = float(topup_match.group(1))
         return {
             "intent": "chat",
-            "message": raw[:300],
-            "query": None, "stall_name": None,
-            "items": [], "topup_amount": None,
+            "message": f"Adding ₹{amt:.0f} to your wallet...",
+            "query": None, "stall_name": None, "items": [],
+            "topup_amount": amt
         }
+
+    # ── Wallet / balance ───────────────────────────────────────────────────────
+    if any(k in msg for k in ["wallet", "balance", "my balance", "how much"]):
+        return {"intent": "wallet_query", "message": "Checking your wallet balance...",
+                "query": None, "stall_name": None, "items": [], "topup_amount": None}
+
+    # ── Order tracking ─────────────────────────────────────────────────────────
+    if any(k in msg for k in ["track", "status", "where is my", "my order", "eta", "pickup code", "how long"]):
+        return {"intent": "track_order", "message": "Checking your active order status...",
+                "query": None, "stall_name": None, "items": [], "topup_amount": None}
+
+    # ── Recommendations ────────────────────────────────────────────────────────
+    if any(k in msg for k in ["recommend", "suggest", "popular", "best", "what should"]):
+        return {"intent": "recommend", "message": "Here are our top recommended dishes for you!",
+                "query": None, "stall_name": None, "items": [], "topup_amount": None}
+
+    # ── ORDER intent — must be checked BEFORE search_items/stalls ─────────────
+    # Matches: "order 2 burgers from Burger Hub", "get me 1 coffee", "buy a sandwich"
+    order_patterns = [
+        r'(?:order|buy|get me|i want|i\'d like|give me)\s+(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s+(.+?)(?:\s+from\s+(.+?))?$',
+        r'(?:order|buy|get me|i want)\s+(.+?)(?:\s+from\s+(.+?))?$',
+    ]
+    qty_words = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4,
+                 "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+    for pattern in order_patterns:
+        m = re.search(pattern, msg)
+        if m:
+            groups = m.groups()
+            if len(groups) == 3:
+                qty_str, item_name, stall_name = groups
+                qty_raw = (qty_str or "1").strip().lower()
+                qty = qty_words.get(qty_raw, None)
+                if qty is None:
+                    try:
+                        qty = int(qty_raw)
+                    except Exception:
+                        qty = 1
+            else:
+                item_name = groups[0]
+                stall_name = groups[1] if len(groups) > 1 else None
+                qty = 1
+
+            item_name = (item_name or "").strip().rstrip(".")
+            stall_name = (stall_name or "").strip() or None
+
+            if item_name:
+                return {
+                    "intent": "order",
+                    "message": f"Finding {item_name} for you...",
+                    "query": None,
+                    "stall_name": stall_name,
+                    "items": [{"name": item_name, "qty": qty}],
+                    "topup_amount": None
+                }
+
+    # ── Stall / hotel search ───────────────────────────────────────────────────
+    if any(k in msg for k in ["hotel", "hotels", "stall", "stalls", "restaurant", "restaurants", "show stalls", "show hotels"]):
+        q = None
+        for w in ["burger", "pizza", "coffee", "chinese", "snacks", "drinks", "tea", "veg"]:
+            if w in msg:
+                q = w
+                break
+        return {"intent": "search_stalls", "message": "Here are available food stalls for you!",
+                "query": q, "stall_name": None, "items": [], "topup_amount": None}
+
+    # ── Menu / item search ─────────────────────────────────────────────────────
+    if any(k in msg for k in ["menu", "show", "item", "items", "food", "burger", "pizza",
+                               "coffee", "veg", "drink", "tea", "fries", "sandwich", "snack"]):
+        q = None
+        for w in ["burger", "pizza", "coffee", "tea", "veg", "drink", "snacks", "fries", "sandwich"]:
+            if w in msg:
+                q = w
+                break
+        return {"intent": "search_items", "message": "Here is what we found on the menu!",
+                "query": q, "stall_name": None, "items": [], "topup_amount": None}
+
+    return {"intent": "chat",
+            "message": "I'm EatsBot! Try: 'Order 1 Burger from Burger Hub', 'Show stalls', 'My wallet balance', or 'Track my order'. 😊",
+            "query": None, "stall_name": None, "items": [], "topup_amount": None}
+
+
+async def call_groq(messages: list, system: str) -> dict:
+    """Call Groq API and return parsed JSON response with seamless rule-based fallback."""
+    last_user_text = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            last_user_text = m.get("content", "")
+            break
+
+    try:
+        api_key = getattr(settings, "GROQ_API_KEY", "")
+        if not api_key or api_key in ("gsk_placeholder", "YOUR_GROQ_API_KEY"):
+            return rule_based_fallback(last_user_text)
+
+        groq_messages = [{"role": "system", "content": system}]
+        valid: list = []
+        for m in messages:
+            if not valid:
+                valid.append(m)
+            elif m["role"] != valid[-1]["role"]:
+                valid.append(m)
+            else:
+                valid[-1]["content"] += "\n" + m["content"]
+        groq_messages.extend(valid)
+
+        if len(groq_messages) > 1 and groq_messages[1]["role"] != "user":
+            groq_messages = [groq_messages[0]] + [m for m in groq_messages[1:] if m["role"] == "user"]
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                GROQ_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type":  "application/json",
+                },
+                json={
+                    "model":           "llama-3.1-8b-instant",
+                    "messages":        groq_messages,
+                    "response_format": {"type": "json_object"},
+                    "temperature":     0.2,
+                    "max_tokens":      512,
+                },
+            )
+
+        if resp.status_code == 200:
+            raw = resp.json()["choices"][0]["message"]["content"]
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                parts = cleaned.split("```")
+                cleaned = parts[1] if len(parts) > 1 else cleaned
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:]
+            return json.loads(cleaned.strip())
+    except Exception as e:
+        print(f"[AI Chatbot Fallback Triggered]: {e}")
+
+    return rule_based_fallback(last_user_text)
+
 
 
 # ── MongoDB serialization helpers ─────────────────────────────────────────────

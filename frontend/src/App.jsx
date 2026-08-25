@@ -105,13 +105,18 @@ function RequireAuth({
 
     if (!roles.includes(role)) {
 
-      if (role === "stall_owner")
+      if (role === "stall_owner") {
+        try {
+          const u = JSON.parse(localStorage.getItem("user_data") || "{}");
+          if (u.stall_id) return <Navigate to={`/kitchen/${u.stall_id}`} replace />;
+        } catch {}
         return (
           <Navigate
             to="/admin"
             replace
           />
         );
+      }
 
       if (role === "student")
         return (

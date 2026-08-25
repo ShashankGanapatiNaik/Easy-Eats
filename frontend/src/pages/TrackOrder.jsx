@@ -177,10 +177,26 @@ export default function TrackOrder() {
 
   /* ── countdown ticker ────────────────────────────────────────────────── */
   useEffect(() => {
-    if (countdown <= 0) return;
-    const t = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(t);
-  }, [countdown]);
+    const updateCountdown = () => {
+      if (["Collected", "Cancelled", "Ready"].includes(order.status)) {
+        setCountdown(0);
+        return;
+      }
+      if (order.estimated_ready_iso) {
+        const readyMs = parseIsoToMs(order.estimated_ready_iso);
+        if (readyMs) {
+          const diffSec = Math.max(0, Math.floor((readyMs - Date.now()) / 1000));
+          setCountdown(diffSec);
+          return;
+        }
+      }
+      setCountdown((c) => Math.max(0, c - 1));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [order.estimated_ready_iso, order.status]);
 
   /* ── derived values ─────────────────────────────────────────────────── */
   const currentIdx = STATUS_INDEX[order.status] ?? 0;

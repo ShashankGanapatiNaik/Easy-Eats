@@ -251,7 +251,7 @@ export default function WalletWidget({ compact = false }) {
                    px-3 py-1.5 rounded-xl hover:bg-lime-100 transition-all"
       >
         <span className="text-sm">💰</span>
-        <span className="font-bold text-lime-700 text-sm">₹{balance?.toFixed(0) ?? "0"}</span>
+        <span className="font-bold text-lime-600 dark:text-lime-400 text-sm">₹{balance?.toFixed(0) ?? "0"}</span>
         <span className="text-xs text-lime-500">+</span>
       </button>
 

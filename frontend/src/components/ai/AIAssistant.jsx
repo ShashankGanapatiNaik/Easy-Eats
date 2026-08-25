@@ -459,7 +459,7 @@ function QuickChips({ onChip, disabled }) {
           key={c.label}
           onClick={() => !disabled && onChip(c.text)}
           disabled={disabled}
-          className="flex-shrink-0 flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 px-3 py-1.5 rounded-full font-medium transition-colors"
+          className="flex-shrink-0 flex items-center gap-1 text-xs bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-gray-700 dark:text-zinc-200 px-3 py-1.5 rounded-full font-medium transition-colors"
         >
           <span>{c.emoji}</span>
           <span>{c.label}</span>
@@ -485,8 +485,8 @@ function Bubble({ msg, onConfirm, onCancel, onBrowse, onOrder, onTrack, onAddMon
           <div
             className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
               isUser
-                ? "bg-zinc-900 text-white rounded-tr-sm"
-                : "bg-gray-100 text-gray-800 rounded-tl-sm"
+                ? "bg-lime-500 text-zinc-950 font-medium rounded-tr-sm"
+                : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white border border-zinc-100 dark:border-zinc-700/80 rounded-tl-sm"
             }`}
           >
             {msg.content}
@@ -918,11 +918,10 @@ export default function AIAssistant() {
       {open && (
         <div
           id="eatsbot-panel"
-          className="fixed bottom-40 right-4 z-50 flex flex-col bg-white rounded-3xl shadow-2xl overflow-hidden"
+          className="fixed bottom-40 right-4 z-50 flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden"
           style={{
             width: "min(420px, calc(100vw - 2rem))",
             maxHeight: "72vh",
-            border: "1px solid rgba(0,0,0,0.07)",
           }}
         >
           {/* Header */}
@@ -947,7 +946,7 @@ export default function AIAssistant() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 bg-zinc-50 space-y-0">
+          <div className="flex-1 overflow-y-auto px-4 py-4 bg-zinc-50 dark:bg-zinc-950 space-y-0">
             {messages.map(msg => (
               <Bubble
                 key={msg.id}
@@ -989,12 +988,12 @@ export default function AIAssistant() {
           </div>
 
           {/* Quick action chips */}
-          <div className="bg-white border-t border-gray-100 flex-shrink-0">
+          <div className="bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 flex-shrink-0">
             <QuickChips onChip={handleSend} disabled={loading} />
           </div>
 
           {/* Input bar */}
-          <div className="px-3 py-3 bg-white border-t border-gray-100 flex gap-2 items-center flex-shrink-0">
+          <div className="px-3 py-3 bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 flex gap-2 items-center flex-shrink-0">
             <input
               ref={inputRef}
               value={input}
@@ -1008,10 +1007,10 @@ export default function AIAssistant() {
                   ? "Listening..."
                   : "Type or speak your order..."
               }
-              className={`flex-1 bg-gray-50 border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors ${
+              className={`flex-1 bg-gray-50 dark:bg-zinc-800 dark:text-white border rounded-xl px-3 py-2.5 text-sm focus:outline-none transition-colors ${
                 pendingOrder
-                  ? "border-lime-400 focus:ring-1 focus:ring-lime-100"
-                  : "border-gray-200 focus:border-lime-400"
+                  ? "border-lime-400 focus:ring-1 focus:ring-lime-100 dark:focus:ring-lime-900"
+                  : "border-gray-200 dark:border-zinc-700 focus:border-lime-400"
               }`}
             />
             {/* Mic button */}
@@ -1020,7 +1019,7 @@ export default function AIAssistant() {
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${
                 listening
                   ? "bg-red-500 text-white shadow-lg scale-110"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  : "bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-zinc-300"
               }`}
               title={listening ? "Stop listening" : "Voice input"}
             >
@@ -1030,7 +1029,7 @@ export default function AIAssistant() {
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || loading}
-              className="w-10 h-10 bg-lime-500 hover:bg-lime-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0 shadow-sm"
+              className="w-10 h-10 bg-lime-500 hover:bg-lime-600 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-950 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 shadow-sm"
               title="Send"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -44,6 +44,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [active, setActive] = useState("All");
+  const [viewMode, setViewMode] = useState("list"); // "grid" | "list"
   const [showProfile, setShowProfile] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -337,19 +338,22 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-md md:max-w-3xl xl:max-w-7xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-24 transition-colors duration-200">
+    <div className="max-w-md md:max-w-4xl xl:max-w-7xl mx-auto min-h-screen bg-white dark:bg-zinc-950 pb-28 transition-colors duration-200">
       <div className="px-4 md:px-6 xl:px-8 pt-6">
 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Easy Eats" className="w-12 h-12 object-contain" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-lime-500 to-emerald-400 p-2 shadow-lg shadow-lime-500/20 flex items-center justify-center">
+              <img src={logo} alt="Easy Eats" className="w-full h-full object-contain" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Easy Eats</h1>
-              <p className="text-sm text-gray-400 dark:text-zinc-500">Pick up faster on campus</p>
+              <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Easy Eats</h1>
+              <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">Fast campus food pickup 🎓</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          
+          <div className="flex items-center gap-2.5">
             <WalletWidget compact />
             
             {/* Animated Notification Bell Dropdown */}
@@ -367,11 +371,11 @@ export default function Home() {
                       } catch {}
                     }
                   }}
-                  className={`w-10 h-10 rounded-full bg-white border border-gray-200 text-zinc-700 hover:text-zinc-950 flex items-center justify-center shadow-sm hover:scale-105 transition-all relative ${unreadCount > 0 ? "animate-wiggle" : ""}`}
+                  className={`w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center shadow-sm hover:scale-105 transition-all relative ${unreadCount > 0 ? "animate-wiggle" : ""}`}
                 >
-                  <span className="text-xl">🔔</span>
+                  <span className="text-lg">🔔</span>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-950 animate-pulse">
                       {unreadCount}
                     </span>
                   )}
@@ -379,11 +383,11 @@ export default function Home() {
 
                 {showNotifDropdown && (
                   <div 
-                    className="absolute right-0 mt-3 w-80 bg-white/95 backdrop-blur-md border border-gray-100 shadow-2xl rounded-3xl p-4 z-[100] animate-slide-up"
+                    className="absolute right-0 mt-3 w-80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-800 shadow-2xl rounded-3xl p-4 z-[100] animate-slide-up"
                     onClick={e => e.stopPropagation()}
                   >
-                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-50">
-                      <h3 className="font-bold text-zinc-900 text-sm">Notifications</h3>
+                    <div className="flex justify-between items-center mb-3 pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                      <h3 className="font-extrabold text-zinc-900 dark:text-white text-sm">Notifications</h3>
                       {notifs.length > 0 && (
                         <button 
                           onClick={async () => {
@@ -393,7 +397,7 @@ export default function Home() {
                               fetchNotifications();
                             } catch {}
                           }}
-                          className="text-xs font-bold text-lime-600 hover:text-lime-700 hover:underline"
+                          className="text-xs font-bold text-lime-600 dark:text-lime-400 hover:underline"
                         >
                           Mark all read
                         </button>
@@ -402,7 +406,7 @@ export default function Home() {
 
                     <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-hide">
                       {notifs.length === 0 ? (
-                        <p className="text-center text-xs text-gray-400 py-6">No notifications yet 🍔</p>
+                        <p className="text-center text-xs text-zinc-400 py-6 font-medium">No notifications yet 🍔</p>
                       ) : (
                         notifs.map((n) => {
                           const isReady = n.type === "order_ready";
@@ -424,17 +428,17 @@ export default function Home() {
                                 setShowNotifDropdown(false);
                                 navigate(`/track/${n.order_id}`);
                               }}
-                              className={`p-3 rounded-2xl text-left transition-all cursor-pointer flex gap-2.5 items-start border ${isUnread ? "bg-lime-50/50 border-lime-200" : "bg-white border-transparent hover:bg-gray-50/50"}`}
+                              className={`p-3 rounded-2xl text-left transition-all cursor-pointer flex gap-2.5 items-start border ${isUnread ? "bg-lime-500/10 border-lime-500/30" : "bg-white dark:bg-zinc-800/40 border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
                             >
                               <span className="text-xl flex-shrink-0">{icon}</span>
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-xs text-zinc-900 leading-tight">
+                                <p className="font-extrabold text-xs text-zinc-900 dark:text-white leading-tight">
                                   {title}
                                 </p>
-                                <p className="text-[11px] text-gray-500 mt-1 leading-normal truncate">
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 leading-normal truncate font-medium">
                                   {n.message.split("\n\n").slice(1).join(" ") || n.message}
                                 </p>
-                                <span className="text-[9px] text-gray-400 mt-1 block">
+                                <span className="text-[9px] text-zinc-400 mt-1 block font-semibold">
                                   {new Date(n.sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                               </div>
@@ -453,219 +457,320 @@ export default function Home() {
             <button
               onClick={toggleTheme}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center shadow-sm hover:scale-105 transition-all text-lg"
+              className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-sm hover:scale-105 transition-all text-sm"
             >
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
 
             <button onClick={() => setShowProfile(true)}
-              className="w-10 h-10 rounded-full bg-zinc-900 dark:bg-lime-500 dark:text-zinc-900 text-white font-bold
-                         flex items-center justify-center shadow-md hover:scale-105 transition-transform">
+              className="w-10 h-10 rounded-2xl bg-zinc-900 dark:bg-lime-500 text-white dark:text-zinc-950 font-black text-sm
+                         flex items-center justify-center shadow-md shadow-lime-500/10 hover:scale-105 transition-transform">
               {getInitial()}
             </button>
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search Input */}
         <div className="relative mt-5">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-400">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-zinc-400">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
             </svg>
           </div>
-          <input type="text" placeholder="Search stalls or cuisine…"
+          <input type="text" placeholder="Search food stalls, burgers, coffee..."
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-white dark:bg-zinc-800 dark:text-white dark:placeholder-zinc-500 dark:border-zinc-700 rounded-2xl pl-12 pr-4 py-4 shadow-sm border
-                       border-gray-200 outline-none focus:ring-2 focus:ring-lime-500/50
-                       focus:border-lime-500 transition-all"/>
+            className="w-full bg-white dark:bg-zinc-900 dark:text-white dark:placeholder-zinc-500 dark:border-zinc-800 rounded-2xl pl-12 pr-4 py-3.5 shadow-sm border
+                       border-zinc-200/90 outline-none focus:border-lime-500 dark:focus:border-lime-400 text-sm font-medium transition-all"/>
         </div>
 
         {/* Group Order / Shared Feast Banner */}
-        <div className="mt-5 bg-gradient-to-r from-lime-500 to-emerald-600 rounded-3xl p-5 text-zinc-950 flex justify-between items-center shadow-lg relative overflow-hidden cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all"
+        <div className="mt-5 bg-gradient-to-r from-lime-500 via-emerald-500 to-teal-500 rounded-3xl p-5 text-zinc-950 flex justify-between items-center shadow-xl relative overflow-hidden cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all"
              onClick={() => setShowGroupModal(true)}>
           <div className="relative z-10">
-            <span className="text-[10px] bg-zinc-950 text-lime-400 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-              New Feature
+            <span className="text-[10px] bg-zinc-950 text-lime-400 font-black px-2.5 py-1 rounded-full uppercase tracking-widest shadow-sm">
+              ✨ Shared Feast
             </span>
-            <h3 className="text-xl font-black text-zinc-950 mt-2">Shared Feast 👥</h3>
-            <p className="text-xs text-zinc-950/80 font-bold mt-1">Start a group order and split the bill with friends!</p>
+            <h3 className="text-xl font-black text-zinc-950 mt-2 tracking-tight">Group Order with Friends 👥</h3>
+            <p className="text-xs text-zinc-950/85 font-bold mt-1">Combine orders into one cart & split the bill seamlessly!</p>
           </div>
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl relative z-10 shadow-inner">
+          <div className="w-13 h-13 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-2xl relative z-10 shadow-inner flex-shrink-0">
             🤝
           </div>
         </div>
 
         {/* Promo banners */}
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 text-white rounded-3xl
-                          p-5 row-span-2 min-h-[190px] flex flex-col justify-between shadow-lg relative overflow-hidden">
-            <div className="absolute -right-6 -top-6 w-24 h-24 bg-lime-500 rounded-full opacity-30 blur-xl" />
+        <div className="mt-5 grid grid-cols-2 gap-3.5">
+          <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 text-white rounded-3xl
+                          p-5 row-span-2 min-h-[190px] flex flex-col justify-between shadow-xl relative overflow-hidden border border-zinc-800">
+            <div className="absolute -right-6 -top-6 w-28 h-28 bg-lime-500 rounded-full opacity-20 blur-2xl" />
             <div className="relative z-10">
-              <p className="text-sm text-white/70 font-medium">Today's Offer</p>
-              <h2 className="text-3xl font-bold mt-2">Flat 20% Off</h2>
+              <span className="text-[10px] uppercase font-black tracking-wider text-lime-400 bg-lime-500/10 px-2.5 py-1 rounded-md border border-lime-500/20">Campus Special</span>
+              <h2 className="text-3xl font-black mt-3 tracking-tight">Flat 20% Off</h2>
             </div>
-            <p className="relative z-10 text-xs bg-white/20 px-3 py-1.5 rounded-full w-fit">Pickup orders only</p>
+            <p className="relative z-10 text-xs bg-white/10 backdrop-blur-md text-zinc-200 px-3 py-1.5 rounded-full w-fit font-bold border border-white/10">Express Pickup Only</p>
           </div>
-          <div className="bg-white rounded-3xl p-4 min-h-[90px] shadow-sm border border-gray-100 flex flex-col justify-between">
-            <p className="text-sm text-gray-500 font-medium">Bonus Deal</p>
-            <h3 className="font-bold text-lg text-zinc-900">Free Coffee ☕</h3>
-          </div>
-          <div className="bg-gradient-to-br from-lime-400 to-lime-500 text-black rounded-3xl p-4 min-h-[90px] shadow-sm flex flex-col justify-between">
-            <p className="text-sm font-medium opacity-80">Fast Lane</p>
-            <h3 className="font-bold text-lg">Ready in 5 min</h3>
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-4 min-h-[90px] shadow-sm border border-zinc-200/80 dark:border-zinc-800 flex flex-col justify-between">
+            <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Bonus Deal</p>
+            <h3 className="font-extrabold text-base text-zinc-900 dark:text-white">Free Coffee ☕</h3>
           </div>
         </div>
 
-        {/* Cuisine filter */}
-        <div className="flex gap-3 overflow-x-auto mt-6 pb-2 scrollbar-hide">
-          {CUISINE_FILTERS.map(item => (
-            <button key={item} onClick={() => setActive(item)}
-              className={`px-5 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${active === item
-                  ? "bg-zinc-900 dark:bg-lime-500 dark:text-zinc-900 text-white shadow-md"
-                  : "bg-white dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 border border-gray-200 text-gray-600 hover:bg-gray-50 dark:hover:bg-zinc-700"
-                }`}>
-              {item}
+        {/* Cuisine filter & View mode switcher */}
+        <div className="flex items-center justify-between gap-3 mt-6">
+          <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide flex-1">
+            {CUISINE_FILTERS.map(item => (
+              <button key={item} onClick={() => setActive(item)}
+                className={`px-4 py-2 rounded-2xl whitespace-nowrap text-xs font-extrabold transition-all ${active === item
+                    ? "bg-zinc-900 dark:bg-lime-500 dark:text-zinc-950 text-white shadow-md scale-105"
+                    : "bg-white dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 border border-zinc-200 text-zinc-600 hover:border-lime-400"
+                  }`}>
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+            <button
+              onClick={() => setViewMode("grid")}
+              title="Grid View"
+              className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+                viewMode === "grid"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              }`}
+            >
+              ▦
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode("list")}
+              title="List View"
+              className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+                viewMode === "list"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+              }`}
+            >
+              ☰
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Stall cards */}
-      <div className="px-4 md:px-6 xl:px-8 mt-6 space-y-5">
+      {/* Stall cards container */}
+      <div className="px-4 md:px-6 xl:px-8 mt-6">
 
         {/* Error state */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3">
-            <span className="text-xl flex-shrink-0">⚠️</span>
+          <div className="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-5 flex gap-3 text-rose-500">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
             <div>
-              <p className="font-bold text-red-700 text-sm">Could not load stalls</p>
-              <p className="text-red-500 text-xs mt-0.5">{error}</p>
-              <p className="text-red-400 text-xs mt-1">
-                Make sure backend is running: <code className="bg-red-100 px-1 rounded">uvicorn app.main:app --reload</code>
-              </p>
+              <p className="font-black text-sm">Could not load stalls</p>
+              <p className="text-xs mt-0.5 font-medium">{error}</p>
               <button onClick={loadStalls}
-                className="mt-2 text-xs bg-red-500 text-white px-3 py-1.5 rounded-lg font-bold">
-                Retry
+                className="mt-3 text-xs bg-rose-500 text-white px-4 py-1.5 rounded-xl font-bold">
+                Retry Connection
               </button>
             </div>
           </div>
         )}
 
         {/* Loading */}
-        {loading && Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 animate-pulse">
-            <div className="w-full h-44 bg-gray-200" />
-            <div className="p-5 space-y-3">
-              <div className="h-5 bg-gray-200 rounded w-2/3" />
-              <div className="h-4 bg-gray-100 rounded w-1/3" />
-            </div>
-          </div>
-        ))}
-
-        {/* Empty */}
-        {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">🏪</p>
-            <p className="text-gray-400 text-lg font-medium">No stalls found</p>
-            <p className="text-gray-300 text-sm mt-1">
-              {stalls.length === 0 ? "Run seed_demo.py to add demo data" : "Try a different filter"}
-            </p>
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-zinc-200 dark:border-zinc-800 animate-pulse">
+                <div className="w-full h-44 bg-zinc-200 dark:bg-zinc-800" />
+                <div className="p-5 space-y-3">
+                  <div className="h-5 bg-zinc-200 dark:bg-zinc-800 rounded-xl w-2/3" />
+                  <div className="h-4 bg-zinc-100 dark:bg-zinc-800 rounded-xl w-1/3" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Stall cards */}
-        {!loading && filtered.map(stall => (
-          <div key={stall.id} onClick={() => navigate("/restaurant/" + stall.id)}
-            className="group bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-800
-                       cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="w-full h-44 overflow-hidden relative">
-              <img
-                src={stall.hero_image_url || "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80"}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                alt={stall.name} />
-              {!stall.is_open && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <span className="bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-full">Closed</span>
-                </div>
-              )}
-              {stall.is_open && (
-                <span className="absolute top-3 left-3 bg-lime-500 text-zinc-900 text-xs font-bold px-2.5 py-1 rounded-full">Open</span>
-              )}
-              {stall.is_open && stall.queue_density && (
-                <div className="absolute top-3 right-3 z-10">
-                  <CrowdBadge density={stall.queue_density} />
-                </div>
-              )}
-            </div>
-            <div className="p-5">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white group-hover:text-lime-600 transition-colors">{stall.name}</h3>
-                  <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5">{stall.cuisine_type}</p>
-                  {stall.location_label && <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">{stall.location_label}</p>}
-                  
-                  {/* Live Crowd Intelligence Row */}
-                  {stall.is_open && stall.queue_density && (
-                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
-                      {stall.queue_density.fast_pickup && (
-                        <span className="bg-emerald-500/10 text-emerald-600 font-extrabold px-2 py-0.5 rounded border border-emerald-500/25">
-                          ⚡ Fast Pickup
-                        </span>
-                      )}
-                      {stall.queue_density.is_rush_hour && (
-                        <span className="bg-rose-500/10 text-rose-600 font-extrabold px-2 py-0.5 rounded border border-rose-500/25 animate-pulse">
-                          🔥 Rush Hour
-                        </span>
-                      )}
-                      <span className="bg-zinc-100 text-zinc-500 font-bold px-2 py-0.5 rounded">
-                        🕒 Best Time: {stall.queue_density.best_time_to_order}
+        {/* Empty */}
+        {!loading && !error && filtered.length === 0 && (
+          <div className="text-center py-20 bg-white dark:bg-zinc-900/60 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-8 shadow-sm">
+            <p className="text-5xl mb-3">🏪</p>
+            <p className="text-zinc-900 dark:text-white text-lg font-extrabold">No stalls found</p>
+            <p className="text-zinc-400 text-xs mt-1">Try selecting a different cuisine filter or clear search</p>
+          </div>
+        )}
+
+        {/* Stall cards - List View */}
+        {!loading && viewMode === "list" && (
+          <div className="space-y-4">
+            {filtered.map(stall => (
+              <div key={stall.id} onClick={() => navigate("/restaurant/" + stall.id)}
+                className="group bg-white dark:bg-zinc-900 rounded-3xl p-4 shadow-sm border border-zinc-200/90 dark:border-zinc-800
+                           cursor-pointer hover:border-lime-500 dark:hover:border-lime-400 hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden relative bg-zinc-100 dark:bg-zinc-800 flex-shrink-0">
+                    <img
+                      src={stall.hero_image_url || "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80"}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      alt={stall.name} />
+                    {!stall.is_open && (
+                      <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center">
+                        <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">Closed</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-lime-500 dark:group-hover:text-lime-400 transition-colors truncate">{stall.name}</h3>
+                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${stall.is_open ? "bg-lime-500/10 text-lime-600 dark:text-lime-400" : "bg-rose-500/10 text-rose-500"}`}>
+                        {stall.is_open ? "● Open" : "● Closed"}
                       </span>
+                    </div>
+
+                    <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">{stall.cuisine_type} {stall.location_label ? `· ${stall.location_label}` : ""}</p>
+                    
+                    {stall.is_open && stall.queue_density && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                        {stall.queue_density.fast_pickup && (
+                          <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold px-2 py-0.5 rounded-lg border border-emerald-500/25">
+                            ⚡ Fast Pickup
+                          </span>
+                        )}
+                        <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold px-2 py-0.5 rounded-lg">
+                          🕒 Best Time: {stall.queue_density.best_time_to_order}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    {stall.avg_rating > 0 && (
+                      <span className="text-xs font-black text-lime-600 dark:text-lime-400 bg-lime-500/10 border border-lime-500/20 px-2.5 py-1 rounded-xl">
+                        ⭐ {stall.avg_rating.toFixed(1)}
+                      </span>
+                    )}
+                    <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-xl">
+                      ⏱ {stall.estimated_pickup_min}–{stall.estimated_pickup_min + 3}m
+                    </span>
+                  </div>
+
+                  <button className="bg-lime-500 hover:bg-lime-400 text-zinc-950 px-4 py-2 rounded-xl text-xs font-black shadow-md shadow-lime-500/15 whitespace-nowrap">
+                    View Menu →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Stall cards - Grid View */}
+        {!loading && viewMode === "grid" && (
+          <div className="flex flex-col gap-5">
+            {filtered.map(stall => (
+              <div key={stall.id} onClick={() => navigate("/restaurant/" + stall.id)}
+                className="group bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-zinc-200/90 dark:border-zinc-800
+                           cursor-pointer hover:border-lime-500 dark:hover:border-lime-400 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+                <div className="w-full h-48 overflow-hidden relative bg-zinc-100 dark:bg-zinc-800">
+                  <img
+                    src={stall.hero_image_url || "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80"}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    alt={stall.name} />
+                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/70 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+
+                  {!stall.is_open && (
+                    <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center">
+                      <span className="bg-rose-500 text-white text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider">Closed</span>
+                    </div>
+                  )}
+                  {stall.is_open && (
+                    <span className="absolute top-3 left-3 bg-lime-500 text-zinc-950 text-xs font-black px-3 py-1 rounded-full shadow-md">Open Now</span>
+                  )}
+                  {stall.is_open && stall.queue_density && (
+                    <div className="absolute top-3 right-3 z-10">
+                      <CrowdBadge density={stall.queue_density} />
                     </div>
                   )}
                 </div>
-                {stall.avg_rating > 0 && (
-                  <div className="bg-lime-50 text-lime-700 border border-lime-100 px-2.5 py-1.5 rounded-xl text-sm font-bold">
-                    ⭐ {stall.avg_rating.toFixed(1)}
+
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-lime-500 dark:group-hover:text-lime-400 transition-colors">{stall.name}</h3>
+                        <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">{stall.cuisine_type}</p>
+                        {stall.location_label && <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mt-0.5">{stall.location_label}</p>}
+                      </div>
+                      {stall.avg_rating > 0 && (
+                        <div className="bg-lime-500/10 text-lime-700 dark:text-lime-400 border border-lime-500/20 px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1">
+                          <span>⭐</span> {stall.avg_rating.toFixed(1)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Live Crowd Intelligence Row */}
+                    {stall.is_open && stall.queue_density && (
+                      <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
+                        {stall.queue_density.fast_pickup && (
+                          <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold px-2 py-0.5 rounded-lg border border-emerald-500/25">
+                            ⚡ Fast Pickup
+                          </span>
+                        )}
+                        {stall.queue_density.is_rush_hour && (
+                          <span className="bg-rose-500/10 text-rose-500 font-extrabold px-2 py-0.5 rounded-lg border border-rose-500/25 animate-pulse">
+                            🔥 Rush Hour
+                          </span>
+                        )}
+                        <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold px-2 py-0.5 rounded-lg">
+                          🕒 Best Time: {stall.queue_density.best_time_to_order}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="border-t border-gray-100 dark:border-zinc-800 mt-4 pt-4 flex justify-between items-center text-sm">
-                <div className="flex items-center gap-1.5 text-gray-600 dark:text-zinc-400 bg-gray-50 dark:bg-zinc-800 px-2.5 py-1 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {stall.estimated_pickup_min}–{stall.estimated_pickup_min + 3} min
+
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 mt-4 pt-3 flex justify-between items-center text-xs font-bold">
+                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/80 px-2.5 py-1.5 rounded-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-lime-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {stall.estimated_pickup_min}–{stall.estimated_pickup_min + 3} min
+                    </div>
+                    <span className="text-lime-600 dark:text-lime-400 font-extrabold flex items-center gap-1">
+                      View Menu →
+                    </span>
+                  </div>
                 </div>
-                <p className="text-lime-600 font-bold">Pickup Ready</p>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Profile Modal */}
       {showProfile && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm"
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-zinc-950/70 backdrop-blur-md"
           onClick={() => { setShowProfile(false); setIsEditing(false); setProfileTab("info"); }}>
-          <div className={`bg-white dark:bg-zinc-900 w-full rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col transition-all duration-300 ${profileTab === "history" ? "md:max-w-3xl max-h-[90vh]" : "md:max-w-md max-h-[85vh]"
+          <div className={`bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 w-full rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col transition-all duration-300 ${profileTab === "history" ? "md:max-w-3xl max-h-[90vh]" : "md:max-w-md max-h-[85vh]"
+
             }`}
             onClick={e => e.stopPropagation()}>
 
             {/* Modal Header with Tabs */}
             <div className="flex-shrink-0 p-5 pb-0">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-zinc-900">My Profile</h2>
+                <h2 className="text-xl font-bold text-zinc-900 dark:text-white">My Profile</h2>
                 <button onClick={() => { setShowProfile(false); setProfileTab("info"); }}
-                  className="bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">✕</button>
+                  className="bg-gray-100 dark:bg-zinc-800 p-2 rounded-full text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">✕</button>
               </div>
               {/* Tab Pills */}
-              <div className="flex bg-gray-100 rounded-2xl p-1 gap-1">
+              <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-2xl p-1 gap-1">
                 <button onClick={() => setProfileTab("info")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${profileTab === "info" ? "bg-white text-zinc-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${profileTab === "info" ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"}`}>
                   👤 Profile
                 </button>
                 <button onClick={() => setProfileTab("history")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${profileTab === "history" ? "bg-white text-zinc-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${profileTab === "history" ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200"}`}>
                   📦 Order History
                 </button>
               </div>
@@ -679,19 +784,19 @@ export default function Home() {
                 <>
                   {!isEditing ? (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl text-left">
-                        <div className="w-14 h-14 rounded-full bg-lime-500 text-zinc-900 font-bold text-xl flex items-center justify-center flex-shrink-0">
+                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-zinc-800/70 p-4 rounded-2xl text-left border border-zinc-100 dark:border-zinc-800">
+                        <div className="w-14 h-14 rounded-full bg-lime-500 text-zinc-950 font-bold text-xl flex items-center justify-center flex-shrink-0">
                           {getInitial()}
                         </div>
                         <div>
-                          <p className="font-black text-lg text-zinc-900 leading-snug">{profile.name || "Add your name"}</p>
-                          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+                          <p className="font-black text-lg text-zinc-900 dark:text-white leading-snug">{profile.name || "Add your name"}</p>
+                          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1 flex items-center gap-1.5">
                             <span>📧</span> {profile.email}
                           </p>
-                          <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                             <span>📱</span> {profile.phone || "Add mobile number"}
                             {profile.phone && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] bg-lime-100 text-lime-800 font-bold px-2 py-0.5 rounded-full ml-1 select-none">
+                              <span className="inline-flex items-center gap-0.5 text-[10px] bg-lime-100 dark:bg-lime-950/50 text-lime-800 dark:text-lime-400 font-bold px-2 py-0.5 rounded-full ml-1 border border-lime-200 dark:border-lime-900 select-none">
                                 ✅ Verified
                               </span>
                             )}
@@ -699,31 +804,31 @@ export default function Home() {
                         </div>
                       </div>
                       <button onClick={() => { setEditForm({ ...profile }); setUpdateError(""); setIsEditing(true); }}
-                        className="w-full flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:bg-gray-50">
+                        className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-750 text-zinc-900 dark:text-white rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all">
                         <span className="font-semibold">Edit Profile</span><span>›</span>
                       </button>
                       <button onClick={() => { setShowProfile(false); setShowLogoutConfirm(true); }}
-                        className="w-full flex items-center justify-between p-4 bg-white border border-red-100 rounded-2xl hover:bg-red-50">
-                        <span className="font-bold text-red-500">Logout</span><span className="text-red-400">›</span>
+                        className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-800 border border-red-100 dark:border-red-900/40 rounded-2xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-all">
+                        <span className="font-bold text-red-500 dark:text-red-400">Logout</span><span className="text-red-400">›</span>
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {updateError && (
-                        <div className="bg-red-50 text-red-700 border border-red-200 text-xs px-3 py-2 rounded-xl font-medium text-left">
+                        <div className="bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 text-xs px-3 py-2 rounded-xl font-medium text-left">
                           ⚠️ {updateError}
                         </div>
                       )}
                       <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1 text-left">Full Name</label>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1 text-left">Full Name</label>
                         <input type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-lime-500 font-medium bg-gray-50 focus:bg-white transition-all focus:ring-2 focus:ring-lime-500/20" />
+                          className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:border-lime-500 font-medium bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900 transition-all focus:ring-2 focus:ring-lime-500/20" />
                       </div>
                       {(() => {
                         const editPhoneParts = parsePhone(editForm.phone);
                         return (
                           <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1 text-left">Phone Number</label>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1 text-left">Phone Number</label>
                             <div className="flex gap-2">
                               <select
                                 value={editPhoneParts.code}
@@ -731,7 +836,7 @@ export default function Home() {
                                   const newCode = e.target.value;
                                   setEditForm({ ...editForm, phone: `${newCode}${editPhoneParts.number}` });
                                 }}
-                                className="border border-gray-200 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
+                                className="border border-gray-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-sm outline-none bg-gray-50 dark:bg-zinc-800 dark:text-white font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
                               >
                                 <option value="+91">🇮🇳 +91</option>
                                 <option value="+1">🇺🇸 +1</option>
@@ -746,18 +851,18 @@ export default function Home() {
                                   setEditForm({ ...editForm, phone: `${editPhoneParts.code}${newNum}` });
                                 }}
                                 placeholder="98765 43210"
-                                className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all bg-gray-50 focus:bg-white font-medium"
+                                className="flex-1 border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all bg-gray-50 dark:bg-zinc-800 dark:text-white focus:bg-white dark:focus:bg-zinc-900 font-medium"
                               />
                             </div>
                           </div>
                         );
                       })()}
                       <div className="flex gap-3">
-                        <button onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+                        <button onClick={() => setIsEditing(false)} disabled={saving} className="flex-1 bg-gray-100 dark:bg-zinc-800 dark:text-zinc-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">Cancel</button>
                         <button onClick={handleSaveProfile} disabled={saving}
-                          className="flex-1 bg-lime-500 text-zinc-900 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 hover:bg-lime-600 transition-colors">
+                          className="flex-1 bg-lime-500 text-zinc-950 py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 hover:bg-lime-400 transition-colors">
                           {saving ? (
-                            <div className="w-5 h-5 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-zinc-950/30 border-t-zinc-950 rounded-full animate-spin" />
                           ) : "Save"}
                         </button>
                       </div>
@@ -772,24 +877,24 @@ export default function Home() {
 
                   {/* Search Bar */}
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400 dark:text-zinc-500">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <input type="text" placeholder="Search orders or restaurants…"
                       value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
-                      className="w-full bg-gray-50 rounded-xl pl-10 pr-4 py-3 text-sm border border-gray-200 outline-none focus:ring-2 focus:ring-lime-500/30 focus:border-lime-500 transition-all" />
+                      className="w-full bg-gray-50 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl pl-10 pr-4 py-3 text-sm border border-gray-200 dark:border-zinc-700 outline-none focus:ring-2 focus:ring-lime-500/30 focus:border-lime-500 transition-all placeholder:text-gray-400 dark:placeholder:text-zinc-500" />
                   </div>
 
                   {/* Loading State */}
                   {ordersLoading && (
                     <div className="space-y-4">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="bg-white rounded-2xl p-5 border border-gray-100 animate-pulse">
-                          <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
-                          <div className="h-3 bg-gray-100 rounded w-2/3 mb-2" />
-                          <div className="h-3 bg-gray-100 rounded w-1/2" />
+                        <div key={i} className="bg-white dark:bg-zinc-850 rounded-2xl p-5 border border-gray-100 dark:border-zinc-800 animate-pulse">
+                          <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/3 mb-3" />
+                          <div className="h-3 bg-gray-100 dark:bg-zinc-750 rounded w-2/3 mb-2" />
+                          <div className="h-3 bg-gray-100 dark:bg-zinc-750 rounded w-1/2" />
                         </div>
                       ))}
                     </div>
@@ -799,27 +904,27 @@ export default function Home() {
                   {!ordersLoading && filteredOrders.length === 0 && (
                     <div className="text-center py-12">
                       <p className="text-4xl mb-3">🛍️</p>
-                      <p className="text-lg font-bold text-zinc-900 mb-1">No orders yet</p>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-lg font-bold text-zinc-900 dark:text-white mb-1">No orders yet</p>
+                      <p className="text-gray-500 dark:text-zinc-400 text-sm">
                         {orders.length === 0 ? "Your order history will appear here." : "No results for your search."}
                       </p>
                     </div>
                   )}
 
-                  {/* Order Cards — Zomato Style */}
+                  {/* Order Cards — High Contrast Dark Mode Compatible */}
                   {!ordersLoading && filteredOrders.map((order) => (
                     <div key={order.id}
-                      className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                      className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden transition-all">
 
                       {/* Header: Restaurant + Date */}
-                      <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-50">
+                      <div className="px-4 py-3.5 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-850/60">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-lime-400 to-lime-500 flex items-center justify-center text-base font-bold text-zinc-900 flex-shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-lime-500 text-zinc-950 flex items-center justify-center text-base font-black flex-shrink-0 shadow-sm">
                             {order.restaurant_name?.charAt(0) || "?"}
                           </div>
                           <div>
-                            <p className="font-bold text-zinc-900 text-sm">{order.restaurant_name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            <p className="font-black text-zinc-900 dark:text-white text-base leading-tight">{order.restaurant_name}</p>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
                               {new Date(order.placed_at).toLocaleString("en-IN", {
                                 day: "numeric", month: "short", year: "numeric",
                                 hour: "2-digit", minute: "2-digit",
@@ -828,34 +933,37 @@ export default function Home() {
                           </div>
                         </div>
                         {order.pickup_code && (
-                          <div className="bg-zinc-100 text-zinc-700 text-xs font-mono font-bold px-2.5 py-1 rounded-lg">
+                          <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-mono font-black px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700">
                             #{order.pickup_code}
                           </div>
                         )}
                       </div>
 
                       {/* Items */}
-                      <div className="px-5 py-3 space-y-1">
+                      <div className="px-4 py-3 space-y-2 bg-white dark:bg-zinc-900">
                         {order.items?.map((item, i) => (
-                          <div key={i} className="flex justify-between text-sm">
-                            <span className="text-gray-600">{item.qty}× {item.name}</span>
-                            <span className="text-gray-700 font-medium">₹{item.subtotal}</span>
+                          <div key={i} className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-800 dark:text-zinc-200 font-semibold">{item.qty}× {item.name}</span>
+                            <span className="text-zinc-900 dark:text-white font-black">₹{item.subtotal}</span>
                           </div>
                         ))}
                       </div>
 
                       {/* Footer: Total + Actions */}
-                      <div className="px-5 pb-4 pt-2 border-t border-gray-50 flex items-center justify-between gap-3">
-                        <p className="font-bold text-zinc-900 text-base">₹{order.total}</p>
+                      <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3 bg-zinc-50/30 dark:bg-zinc-850/40">
+                        <div>
+                          <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase">Grand Total</p>
+                          <p className="font-black text-lime-600 dark:text-lime-400 text-lg leading-tight">₹{order.total}</p>
+                        </div>
                         <div className="flex gap-2 items-center">
                           {/* Reorder */}
                           <button
                             disabled={order.stall_is_open === false}
                             onClick={() => handleReorder(order)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-sm ${
                               order.stall_is_open !== false
-                                ? "bg-zinc-900 text-white hover:bg-zinc-800"
-                                : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                                ? "bg-lime-500 text-zinc-950 hover:bg-lime-400"
+                                : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed border border-zinc-300 dark:border-zinc-700"
                             }`}
                           >
                             {order.stall_is_open !== false ? "🔄 Reorder" : "🔒 Closed"}
@@ -863,16 +971,17 @@ export default function Home() {
                           {/* Rate — only if collected & not yet reviewed */}
                           {order.status === "Collected" && !order.is_reviewed && (
                             <button onClick={() => { setReviewingId(reviewingId === order.id ? null : order.id); setReviewRating(0); setReviewComment(""); }}
-                              className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-100 transition-all">
+                              className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-3 py-2 rounded-xl text-xs font-black hover:bg-amber-500/20 transition-all">
                               ⭐ Rate
                             </button>
                           )}
                           {order.is_reviewed && (
-                            <span className="text-xs text-lime-600 font-bold">✅ Rated</span>
+                            <span className="text-xs text-lime-600 dark:text-lime-400 font-black">✅ Rated</span>
                           )}
                           {/* Invoice */}
                           <button onClick={() => handleDownloadInvoice(order)}
-                            className="p-2 bg-gray-50 text-gray-500 border border-gray-200 rounded-xl text-xs hover:bg-gray-100 transition-all">
+                            className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all"
+                            title="Receipt">
                             🧾
                           </button>
                         </div>
@@ -881,8 +990,8 @@ export default function Home() {
                       {/* Inline Review Form */}
                       {reviewingId === order.id && (
                         <div className="px-5 pb-4">
-                          <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 space-y-3">
-                            <p className="text-sm font-bold text-zinc-900">Rate your experience</p>
+                          <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-2xl p-4 space-y-3">
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">Rate your experience</p>
                             <div className="flex gap-1">
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <button key={star} onClick={() => setReviewRating(star)}
@@ -897,18 +1006,18 @@ export default function Home() {
                               onChange={(e) => setReviewComment(e.target.value)}
                               placeholder="Share your thoughts (optional)…"
                               rows={2}
-                              className="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-400 bg-white resize-none"
+                              className="w-full border border-amber-200 dark:border-amber-900/50 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-400 bg-white dark:bg-zinc-800 dark:text-white resize-none"
                             />
                             <div className="flex gap-2">
                               <button onClick={() => setReviewingId(null)}
-                                className="flex-1 bg-white border border-gray-200 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50">
+                                className="flex-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-700">
                                 Cancel
                               </button>
                               <button onClick={() => handleSubmitReview(order)}
                                 disabled={reviewRating < 1 || reviewSubmitting}
-                                className="flex-1 bg-amber-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-1">
+                                className="flex-1 bg-amber-500 text-zinc-950 py-2 rounded-xl text-xs font-bold hover:bg-amber-400 disabled:opacity-50 flex items-center justify-center gap-1">
                                 {reviewSubmitting ? (
-                                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  <div className="w-4 h-4 border-2 border-zinc-950/30 border-t-zinc-950 rounded-full animate-spin" />
                                 ) : "Submit Review"}
                               </button>
                             </div>
@@ -921,7 +1030,7 @@ export default function Home() {
                   {/* Refresh button */}
                   {!ordersLoading && orders.length > 0 && (
                     <button onClick={loadOrderHistory}
-                      className="w-full py-3 text-sm text-gray-500 font-semibold hover:text-lime-600 transition-colors flex items-center justify-center gap-2">
+                      className="w-full py-3 text-sm text-gray-500 dark:text-zinc-400 font-semibold hover:text-lime-600 dark:hover:text-lime-400 transition-colors flex items-center justify-center gap-2">
                       🔄 Refresh Orders
                     </button>
                   )}
@@ -935,12 +1044,12 @@ export default function Home() {
       {/* Logout Confirm */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center">
-            <h3 className="text-xl font-bold text-zinc-900 mb-2">Logout?</h3>
-            <p className="text-gray-500 mb-6">Are you sure you want to log out?</p>
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center">
+            <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Logout?</h3>
+            <p className="text-gray-500 dark:text-zinc-400 mb-6">Are you sure you want to log out?</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Cancel</button>
-              <button onClick={logout} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold">Logout</button>
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 bg-gray-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">Cancel</button>
+              <button onClick={logout} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">Logout</button>
             </div>
           </div>
         </div>
@@ -950,34 +1059,34 @@ export default function Home() {
       {showGroupModal && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
              onClick={() => { setShowGroupModal(false); setGroupModalStep("select-action"); }}>
-          <div className="bg-white w-full md:max-w-md rounded-3xl shadow-2xl p-6 flex flex-col max-h-[85vh] transition-all duration-300 animate-slide-up"
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 w-full md:max-w-md rounded-3xl shadow-2xl p-6 flex flex-col max-h-[85vh] transition-all duration-300 animate-slide-up"
                onClick={e => e.stopPropagation()}>
             
             {/* Header */}
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-black text-zinc-900">Shared Feast Order</h2>
+              <h2 className="text-xl font-black text-zinc-900 dark:text-white">Shared Feast Order</h2>
               <button onClick={() => { setShowGroupModal(false); setGroupModalStep("select-action"); }}
-                      className="bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">✕</button>
+                      className="bg-gray-100 dark:bg-zinc-800 p-2 rounded-full text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">✕</button>
             </div>
 
             {/* Step 1: Select Action */}
             {groupModalStep === "select-action" && (
               <div className="space-y-4">
                 <button onClick={handleStartGroupOrderFlow}
-                        className="w-full text-left p-5 bg-lime-50 border border-lime-100 rounded-3xl flex items-center gap-4 hover:bg-lime-100/50 transition-all">
+                        className="w-full text-left p-5 bg-lime-50 dark:bg-lime-950/30 border border-lime-200 dark:border-lime-900/50 rounded-3xl flex items-center gap-4 hover:bg-lime-100/50 dark:hover:bg-lime-900/40 transition-all">
                   <span className="text-3xl">👑</span>
                   <div>
-                    <p className="font-black text-base text-zinc-900">Start a Group Order</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Select a restaurant and host a group session.</p>
+                    <p className="font-black text-base text-zinc-900 dark:text-white">Start a Group Order</p>
+                    <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">Select a restaurant and host a group session.</p>
                   </div>
                 </button>
 
                 <button onClick={() => setGroupModalStep("join-code")}
-                        className="w-full text-left p-5 bg-white border border-gray-100 rounded-3xl flex items-center gap-4 hover:bg-gray-50 transition-all">
+                        className="w-full text-left p-5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-750 rounded-3xl flex items-center gap-4 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all">
                   <span className="text-3xl">👥</span>
                   <div>
-                    <p className="font-black text-base text-zinc-900">Join Existing Group</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Enter a 6-character room code to join your friends.</p>
+                    <p className="font-black text-base text-zinc-900 dark:text-white">Join Existing Group</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-300 mt-0.5">Enter a 6-character room code to join your friends.</p>
                   </div>
                 </button>
               </div>
@@ -986,31 +1095,31 @@ export default function Home() {
             {/* Step 2: Select Stall/Hotel (Host flow) */}
             {groupModalStep === "select-stall" && (
               <div className="space-y-4">
-                <p className="text-xs font-black uppercase text-zinc-400 tracking-wider">Select a Restaurant</p>
+                <p className="text-xs font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider">Select a Restaurant</p>
                 <div className="space-y-2.5 max-h-60 overflow-y-auto">
                   {groupStallsLoading ? (
-                    <div className="text-center py-6 text-xs text-gray-400">Loading open stalls...</div>
+                    <div className="text-center py-6 text-xs text-gray-400 dark:text-zinc-500">Loading open stalls...</div>
                   ) : openStalls.length === 0 ? (
-                    <div className="text-center py-6 text-xs text-gray-400">No open restaurants available.</div>
+                    <div className="text-center py-6 text-xs text-gray-400 dark:text-zinc-500">No open restaurants available.</div>
                   ) : (
                     openStalls.map(stall => (
                       <div key={stall.id} 
                            onClick={() => handleCreateGroupSession(stall.id)}
-                           className="flex items-center justify-between p-3.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 rounded-2xl cursor-pointer transition-all">
+                           className="flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-750 border border-zinc-100 dark:border-zinc-750 rounded-2xl cursor-pointer transition-all">
                         <div className="flex items-center gap-3">
                           <span className="text-2xl">🏪</span>
                           <div className="text-left">
-                            <p className="font-bold text-sm text-zinc-900">{stall.name}</p>
-                            <p className="text-[10px] text-gray-500">{stall.cuisine_type} • {stall.location_label}</p>
+                            <p className="font-bold text-sm text-zinc-900 dark:text-white">{stall.name}</p>
+                            <p className="text-[10px] text-gray-500 dark:text-zinc-400">{stall.cuisine_type} • {stall.location_label}</p>
                           </div>
                         </div>
-                        <span className="text-zinc-400 font-bold">›</span>
+                        <span className="text-zinc-400 dark:text-zinc-500 font-bold">›</span>
                       </div>
                     ))
                   )}
                 </div>
                 <button onClick={() => setGroupModalStep("select-action")}
-                        className="w-full bg-gray-100 py-3 rounded-2xl font-bold text-sm text-gray-600 hover:bg-gray-200">
+                        className="w-full bg-gray-100 dark:bg-zinc-800 py-3 rounded-2xl font-bold text-sm text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">
                   Back
                 </button>
               </div>
@@ -1020,17 +1129,17 @@ export default function Home() {
             {groupModalStep === "join-code" && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-black uppercase text-zinc-400 tracking-wider mb-2">Room Code</label>
+                  <label className="block text-xs font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider mb-2">Room Code</label>
                   <input type="text" 
                          value={joinCode}
                          onChange={e => setJoinCode(e.target.value.toUpperCase())}
                          placeholder="ENTER 6-CHAR CODE"
                          maxLength={6}
-                         className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-center font-mono font-black text-lg tracking-widest outline-none focus:border-lime-500 focus:bg-white transition-all"/>
+                         className="w-full bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-zinc-900 dark:text-white rounded-2xl px-4 py-4 text-center font-mono font-black text-lg tracking-widest outline-none focus:border-lime-500 focus:bg-white dark:focus:bg-zinc-900 transition-all"/>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setGroupModalStep("select-action")}
-                          className="flex-1 bg-gray-100 py-3 rounded-2xl font-bold text-sm text-gray-600 hover:bg-gray-200">
+                          className="flex-1 bg-gray-100 dark:bg-zinc-800 py-3 rounded-2xl font-bold text-sm text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">
                     Cancel
                   </button>
                   <button onClick={handleJoinGroupSessionSubmit}

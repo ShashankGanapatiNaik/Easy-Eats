@@ -35,6 +35,52 @@ html:not(.dark) .bg-slate-100 {
   background-color: #ffffff !important;
 }
 
+/* ── Dark mode: ensure text is bright white / readable ── */
+html.dark {
+  color-scheme: dark;
+}
+html.dark p,
+html.dark span,
+html.dark label,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark li,
+html.dark td,
+html.dark th,
+html.dark div:not([class*="text-"]):not([class*="bg-lime"]):not([class*="bg-emerald"]) {
+  color: inherit;
+}
+
+html.dark .text-zinc-900,
+html.dark .text-zinc-800,
+html.dark .text-zinc-700,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700,
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
+  color: #f4f4f5 !important;
+}
+
+html.dark .text-zinc-600,
+html.dark .text-zinc-500,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #a1a1aa !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color: #f4f4f5 !important;
+}
+
 @layer utilities {
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }

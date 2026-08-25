@@ -73,13 +73,11 @@ export default function Login() {
         navigate("/admin");
 
       } else if (userRole === "stall_owner") {
-
         if (u.stall_id) {
           navigate(`/kitchen/${u.stall_id}`);
         } else {
-          localStorage.clear();
+          navigate("/admin");
         }
-
       } else if (userRole === "student") {
         navigate("/home");
 

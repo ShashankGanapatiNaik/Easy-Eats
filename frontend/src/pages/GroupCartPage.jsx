@@ -365,7 +365,7 @@ export default function GroupCartPage() {
           <div className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-850 border border-zinc-150 dark:border-zinc-800 p-3 rounded-2xl">
             <div>
               <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-black uppercase">Your Wallet Balance</p>
-              <p className="text-sm font-black text-zinc-800 dark:text-white">₹{myBalance.toFixed(2)}</p>
+              <p className="text-sm font-black text-lime-600 dark:text-lime-400">₹{myBalance.toFixed(2)}</p>
             </div>
             <button
               onClick={() => navigate("/wallet")}

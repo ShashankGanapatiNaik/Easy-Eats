@@ -60,6 +60,8 @@ class PlaceOrderBody(BaseModel):
 
     payment_status: Optional[str] = None
 
+    express_slot: Optional[str] = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PLACE ORDER
@@ -253,8 +255,9 @@ async def place_order(
             ready_time_utc.replace(tzinfo=timezone.utc).isoformat(),
 
         pickup_slot=
-            f"{slot_start_local.strftime('%H:%M')} – "
-            f"{slot_end_local.strftime('%H:%M')}",
+            body.express_slot or
+            (f"{slot_start_local.strftime('%H:%M')} – "
+             f"{slot_end_local.strftime('%H:%M')}"),
 
         active_orders_at_placement=
             active_orders,

@@ -5,13 +5,13 @@ import { useState, useEffect } from "react";
 import { updateStatus } from "../../api";
 
 const STATUS_STYLE = {
-  Placed:         { pill: "bg-blue-100 text-blue-700 border-blue-200",   dot: "bg-blue-500"   },
-  Accepted:       { pill: "bg-indigo-100 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
-  Preparing:      { pill: "bg-amber-100 text-amber-700 border-amber-200",  dot: "bg-amber-500"  },
-  "Almost Ready": { pill: "bg-orange-100 text-orange-700 border-orange-200",dot: "bg-orange-500" },
-  Ready:          { pill: "bg-lime-100 text-lime-800 border-lime-300",    dot: "bg-lime-500"   },
-  Collected:      { pill: "bg-zinc-100 text-zinc-600 border-zinc-200",    dot: "bg-zinc-400"   },
-  Cancelled:      { pill: "bg-red-100 text-red-600 border-red-200",       dot: "bg-red-400"    },
+  Placed:         { pill: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",   dot: "bg-blue-500"   },
+  Accepted:       { pill: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20", dot: "bg-indigo-500" },
+  Preparing:      { pill: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",  dot: "bg-amber-500"  },
+  "Almost Ready": { pill: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",dot: "bg-orange-500" },
+  Ready:          { pill: "bg-lime-500/10 text-lime-700 dark:text-lime-400 border-lime-500/20",    dot: "bg-lime-500"   },
+  Collected:      { pill: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20",    dot: "bg-zinc-400"   },
+  Cancelled:      { pill: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",       dot: "bg-rose-500"    },
 };
 
 const ACTIVE = ["Placed", "Accepted", "Preparing", "Almost Ready", "Ready"];
@@ -85,7 +85,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
   const handleUpdatePrepTime = async (mins) => {
     setLoading(true);
     setShowTimeModal(false);
-    const targetMins = Number(mins) || 10;
+    const targetMins = Math.max(1, Number(mins) || 10);
     const readyIso = new Date(Date.now() + targetMins * 60000).toISOString();
     const targetStatus = isPending ? "Preparing" : localOrder.status;
 
@@ -114,6 +114,15 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Extend Prep Time (Adds minutes to current remaining time) ────────────
+  const handleExtendPrepTime = async (addMins) => {
+    const currentRem = (hasEta && !countdown.expired) 
+      ? Math.ceil(countdown.secs / 60) 
+      : (localOrder.remaining_min || 5);
+    const newTotalMins = currentRem + Number(addMins);
+    await handleUpdatePrepTime(newTotalMins);
   };
 
   // ── Accept Order directly with default AI time ────────────────────────────
@@ -178,50 +187,50 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
   return (
     <>
-      <div className={`bg-white rounded-2xl border overflow-hidden shadow-sm transition-all duration-300
-        ${isNew     ? "border-lime-400 ring-2 ring-lime-400/30 shadow-lime-100 shadow-md" : ""}
-        ${isOverdue ? "border-red-300" : ""}
-        ${isReady   ? "border-lime-300 ring-1 ring-lime-300/40" : ""}
-        ${isCollected ? "opacity-70" : ""}
-        ${!isNew && !isOverdue && !isReady && !isCollected ? "border-gray-100 hover:shadow-md hover:-translate-y-0.5" : ""}
+      <div className={`bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 overflow-hidden shadow-sm transition-all duration-300
+        ${isNew     ? "border-lime-500 dark:border-lime-400 ring-2 ring-lime-400/30 shadow-lime-500/10 shadow-lg" : ""}
+        ${isOverdue ? "border-rose-400 dark:border-rose-500 ring-1 ring-rose-400/20" : ""}
+        ${isReady   ? "border-lime-400 dark:border-lime-400 ring-1 ring-lime-400/30" : ""}
+        ${isCollected ? "opacity-75 dark:opacity-60" : ""}
+        ${!isNew && !isOverdue && !isReady && !isCollected ? "hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-lg hover:-translate-y-0.5" : ""}
       `}>
 
         {/* ── Ribbon ── */}
         {isNew && (
-          <div className="bg-lime-500 text-zinc-900 text-xs font-black text-center py-1 animate-pulse tracking-widest">
-            🔔 NEW ORDER
+          <div className="bg-lime-500 text-zinc-950 text-[11px] font-black text-center py-1 animate-pulse tracking-widest uppercase">
+            🔔 NEW ORDER ARRIVED
           </div>
         )}
         {isOverdue && !isNew && (
-          <div className="bg-red-500 text-white text-xs font-bold text-center py-1">
+          <div className="bg-rose-500 text-white text-[11px] font-bold text-center py-1 uppercase tracking-wider">
             ⚠️ OVERDUE — {countdown.mins === 0 && countdown.sec === 0
               ? `${Math.abs(Math.floor((Date.now() - new Date(localOrder.estimated_ready_iso)) / 60000))} min past ETA`
               : "past estimated time"}
           </div>
         )}
         {isPending && !isNew && (
-          <div className="bg-blue-500 text-white text-xs font-bold text-center py-1">
-            ⏳ PENDING — waiting for acceptance
+          <div className="bg-blue-500 text-white text-[11px] font-bold text-center py-1 uppercase tracking-wider">
+            ⏳ PENDING — Waiting for Acceptance
           </div>
         )}
         {isReady && (
-          <div className="bg-lime-500 text-zinc-900 text-xs font-black text-center py-1 animate-pulse">
+          <div className="bg-lime-500 text-zinc-950 text-[11px] font-black text-center py-1 animate-pulse uppercase tracking-wider">
             ✅ READY FOR PICKUP
           </div>
         )}
 
-        <div className="p-4">
+        <div className="p-4 sm:p-5">
           {/* ── Header ── */}
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-black text-zinc-900 text-base">#{code}</p>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${style.pill}`}>
+                <p className="font-black text-zinc-900 dark:text-white text-base">#{code}</p>
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${style.pill}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
                   {isPending ? "Pending" : localOrder.status}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
                 Placed {elapsed === 0 ? "just now" : `${elapsed}m ago`}
                 {localOrder.customer_name ? ` · ${localOrder.customer_name}` : ""}
               </p>
@@ -229,62 +238,62 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
             {/* ETA countdown — only show after order has been accepted */}
             {hasEta && !isReady && (
-              <div className={`text-right flex-shrink-0 ${countdown.expired ? "text-red-500" : "text-zinc-900"}`}>
-                <p className="text-xs text-gray-400">Ready by</p>
+              <div className={`text-right flex-shrink-0 ${countdown.expired ? "text-rose-500" : "text-zinc-900 dark:text-white"}`}>
+                <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Ready by</p>
                 <p className="font-black text-sm tabular-nums">
                   {fmt12(localOrder.estimated_ready_iso)}
                 </p>
                 {!countdown.expired && (
-                  <p className="text-xs font-bold text-lime-600 tabular-nums">
+                  <p className="text-xs font-bold text-lime-600 dark:text-lime-400 tabular-nums">
                     {countdown.mins}m {String(countdown.sec).padStart(2,"0")}s
                   </p>
                 )}
                 {countdown.expired && (
-                  <p className="text-xs font-bold text-red-500">Overdue</p>
+                  <p className="text-xs font-bold text-rose-500">Overdue</p>
                 )}
               </div>
             )}
           </div>
 
-          {/* ── Items ── */}
-          <div className="bg-gray-50 rounded-xl p-3 mb-3 space-y-1.5">
+          {/* ── Items List ── */}
+          <div className="bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-3 mb-3 space-y-1.5">
             {localOrder.items?.map((item, i) => (
-              <div key={i} className="flex justify-between items-start text-sm">
-                <span className="text-zinc-700">
-                  <span className="font-bold text-zinc-900">{item.qty}×</span> {item.name}
+              <div key={i} className="flex justify-between items-start text-xs sm:text-sm">
+                <span className="text-zinc-800 dark:text-zinc-200">
+                  <span className="font-black text-zinc-900 dark:text-white">{item.qty}×</span> {item.name}
                   {item.customizations?.length > 0 && (
-                    <span className="text-xs text-gray-400 block ml-4">
+                    <span className="text-[11px] text-zinc-400 block ml-4">
                       {item.customizations.map(c => c.label).join(", ")}
                     </span>
                   )}
                 </span>
-                <span className="text-gray-500 ml-2 flex-shrink-0 font-medium">₹{item.subtotal}</span>
+                <span className="text-zinc-500 dark:text-zinc-400 ml-2 flex-shrink-0 font-bold">₹{item.subtotal}</span>
               </div>
             ))}
           </div>
 
           {/* ── Special instructions ── */}
           {localOrder.special_instructions && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
-              <p className="text-xs text-amber-600 font-bold mb-0.5">📝 Customer Note</p>
-              <p className="text-xs text-amber-800 leading-relaxed">{localOrder.special_instructions}</p>
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-3 py-2 mb-3">
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mb-0.5">📝 Special Request</p>
+              <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed font-medium">{localOrder.special_instructions}</p>
             </div>
           )}
 
           {/* ── Pickup code + total ── */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="bg-zinc-900 text-white px-3 py-1.5 rounded-xl">
-                <p className="text-xs text-zinc-400">Pickup</p>
-                <p className="font-black text-base tracking-widest">{code}</p>
+              <div className="bg-zinc-900 dark:bg-zinc-800 border border-zinc-800 text-white px-3 py-1.5 rounded-xl shadow-sm">
+                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Pickup Code</p>
+                <p className="font-black text-base tracking-widest text-lime-400">{code}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Total</p>
-                <p className="font-black text-zinc-900 text-lg">₹{localOrder.total}</p>
+                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider">Total Amount</p>
+                <p className="font-black text-zinc-900 dark:text-white text-lg">₹{localOrder.total}</p>
               </div>
             </div>
             {localOrder.pickup_slot && (
-              <span className="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg font-medium">
+              <span className="text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-3 py-1 rounded-xl font-bold border border-zinc-200 dark:border-zinc-700">
                 🕐 {localOrder.pickup_slot}
               </span>
             )}
@@ -292,26 +301,26 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
           {/* ── AI Assistant Analytics (Dashboard) ── */}
           {localOrder.ai_prediction && ACTIVE.includes(localOrder.status) && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 mb-3 flex justify-between items-center text-[11px] text-zinc-600">
+            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl px-3.5 py-2.5 mb-3 flex justify-between items-center text-[11px] text-zinc-600 dark:text-zinc-300">
               <div>
-                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">🧠 AI ETA Window</p>
-                <p className="font-extrabold text-indigo-950 mt-0.5">
+                <p className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">🧠 AI Prep Window</p>
+                <p className="font-extrabold text-indigo-950 dark:text-indigo-200 mt-0.5">
                   {localOrder.ai_prediction.confidence_range}
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">Delay Risk</p>
+                <p className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Delay Risk</p>
                 <span className={`inline-block font-black mt-0.5
-                  ${localOrder.ai_prediction.delay_risk === "High" ? "text-red-600 animate-pulse" : ""}
-                  ${localOrder.ai_prediction.delay_risk === "Medium" ? "text-amber-600" : ""}
-                  ${localOrder.ai_prediction.delay_risk === "Low" ? "text-emerald-600" : ""}
+                  ${localOrder.ai_prediction.delay_risk === "High" ? "text-rose-500 animate-pulse" : ""}
+                  ${localOrder.ai_prediction.delay_risk === "Medium" ? "text-amber-500" : ""}
+                  ${localOrder.ai_prediction.delay_risk === "Low" ? "text-emerald-500 dark:text-emerald-400" : ""}
                 `}>
                   {localOrder.ai_prediction.delay_risk} Risk
                 </span>
               </div>
               <div className="text-right">
-                <p className="text-[9px] text-indigo-500 font-bold uppercase tracking-wider">Stall Avg Speed</p>
-                <p className="font-bold text-indigo-950 mt-0.5">
+                <p className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Avg Prep Speed</p>
+                <p className="font-bold text-indigo-950 dark:text-indigo-200 mt-0.5">
                   {localOrder.ai_prediction.avg_completion_speed}
                 </p>
               </div>
@@ -320,27 +329,48 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
           {/* ── Custom Prep Time Picker / Time Adjustment Panel ── */}
           {showTimeModal && (
-            <div className="mb-3 p-3 bg-zinc-900 text-white rounded-2xl animate-fade-in space-y-2">
-              <div className="flex justify-between items-center">
-                <p className="text-xs font-bold text-lime-400">⏱️ {isPending ? "Set Prep Time" : "Extend / Update Prep Time"}</p>
-                <button onClick={() => setShowTimeModal(false)} className="text-xs text-gray-400 hover:text-white">✕</button>
+            <div className="mb-3 p-3.5 bg-zinc-900 border border-zinc-800 text-white rounded-2xl animate-fade-in space-y-2.5 shadow-xl">
+              <div className="flex justify-between items-center border-b border-zinc-800 pb-2">
+                <p className="text-xs font-bold text-lime-400">⏱️ {isPending ? "Set Order Prep Time" : "Adjust / Extend Order Time"}</p>
+                <button onClick={() => setShowTimeModal(false)} className="text-xs text-zinc-400 hover:text-white">✕</button>
               </div>
               
-              {/* Quick minute pills */}
-              <div className="flex gap-1.5 flex-wrap">
-                {[5, 10, 15, 20, 30, 45].map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => { setPrepInput(m); handleUpdatePrepTime(m); }}
-                    className="px-2.5 py-1 text-xs font-bold bg-zinc-800 hover:bg-lime-500 hover:text-zinc-900 rounded-lg transition-colors border border-zinc-700"
-                  >
-                    {m}m
-                  </button>
-                ))}
+              {/* Quick extend buttons */}
+              {isPreparing && (
+                <div>
+                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1.5">Extend Current Remaining Time</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[5, 10, 15, 20].map((addM) => (
+                      <button
+                        key={`ext-${addM}`}
+                        onClick={() => handleExtendPrepTime(addM)}
+                        className="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-zinc-950 rounded-lg transition-colors border border-amber-500/30"
+                      >
+                        +{addM}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Set Total Time from now */}
+              <div>
+                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-1.5">{isPreparing ? "Or Set Total Time (From Now)" : "Quick Presets (From Now)"}</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[5, 10, 15, 20, 30, 45].map((m) => (
+                    <button
+                      key={`set-${m}`}
+                      onClick={() => { setPrepInput(m); handleUpdatePrepTime(m); }}
+                      className="px-2.5 py-1 text-xs font-bold bg-zinc-800 hover:bg-lime-500 hover:text-zinc-950 rounded-lg transition-colors border border-zinc-700"
+                    >
+                      {m}m
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Custom input row */}
-              <div className="flex gap-2 pt-1">
+              <div className="flex gap-2 pt-1 border-t border-zinc-800/80">
                 <input
                   type="number"
                   min="1"
@@ -352,7 +382,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
                 />
                 <button
                   onClick={() => handleUpdatePrepTime(prepInput)}
-                  className="flex-1 bg-lime-500 hover:bg-lime-600 text-zinc-900 text-xs font-bold py-1 px-3 rounded-xl transition-all"
+                  className="flex-1 bg-lime-500 hover:bg-lime-400 text-zinc-950 text-xs font-bold py-1.5 px-3 rounded-xl transition-all"
                 >
                   Set {prepInput} Mins
                 </button>
@@ -368,9 +398,9 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
                 <button
                   onClick={handleAcceptOrder}
                   disabled={loading}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                  className="flex-1 py-3 rounded-2xl font-black text-xs sm:text-sm transition-all active:scale-95
                     disabled:opacity-50 flex items-center justify-center gap-1.5
-                    bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
+                    bg-lime-500 hover:bg-lime-400 text-zinc-950 shadow-md shadow-lime-500/20"
                 >
                   {loading
                     ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -380,7 +410,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
                 <button
                   onClick={() => setShowTimeModal(!showTimeModal)}
-                  className="px-3 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-bold text-xs transition-all flex items-center gap-1"
+                  className="px-3 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition-all flex items-center gap-1"
                   title="Choose custom preparation time"
                 >
                   ⏱️ Custom
@@ -394,9 +424,9 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
                 <button
                   onClick={handleReadyForPickup}
                   disabled={loading}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                  className="flex-1 py-3 rounded-2xl font-black text-xs sm:text-sm transition-all active:scale-95
                     disabled:opacity-50 flex items-center justify-center gap-2
-                    bg-lime-500 hover:bg-lime-600 text-zinc-900 shadow-md shadow-lime-500/20"
+                    bg-lime-500 hover:bg-lime-400 text-zinc-950 shadow-md shadow-lime-500/20"
                 >
                   {loading
                     ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -406,7 +436,7 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
 
                 <button
                   onClick={() => setShowTimeModal(!showTimeModal)}
-                  className="px-3 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs transition-all flex items-center gap-1"
+                  className="px-3 py-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold text-xs transition-all flex items-center gap-1"
                   title="Adjust or extend prep time"
                 >
                   ⏱️ Extend Time
@@ -419,9 +449,9 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
               <button
                 onClick={handleCollected}
                 disabled={loading}
-                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all active:scale-95
+                className="flex-1 py-3 rounded-2xl font-black text-xs sm:text-sm transition-all active:scale-95
                   disabled:opacity-50 flex items-center justify-center gap-2
-                  bg-zinc-800 hover:bg-zinc-700 text-white"
+                  bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white"
               >
                 {loading
                   ? <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -435,8 +465,8 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
               <button
                 onClick={handleCancel}
                 disabled={loading}
-                className="px-3.5 py-3 rounded-xl bg-gray-100 hover:bg-red-100
-                           text-gray-400 hover:text-red-500 font-bold text-sm transition-all"
+                className="px-3.5 py-3 rounded-2xl bg-zinc-100 hover:bg-rose-500/10 dark:bg-zinc-800 dark:hover:bg-rose-500/20
+                           text-zinc-400 hover:text-rose-500 font-bold text-sm transition-all border border-transparent hover:border-rose-500/20"
               >
                 ✕
               </button>
@@ -446,8 +476,8 @@ export default function OrderCard({ order, isNew, onUpdated, onDeleted }) {
             {isCollected && (
               <button
                 onClick={handleDelete}
-                className="flex-1 py-3 rounded-xl bg-red-50 hover:bg-red-100
-                           text-red-500 font-bold text-sm transition-all border border-red-200"
+                className="flex-1 py-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20
+                           text-rose-500 font-bold text-xs sm:text-sm transition-all border border-rose-500/20"
               >
                 🗑 Remove
               </button>

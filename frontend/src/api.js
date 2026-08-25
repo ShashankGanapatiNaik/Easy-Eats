@@ -74,6 +74,7 @@ export const getAnalytics    = (stallId)      => api.get(`/orders/analytics/${st
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
 export const submitReview = (stallId, body) => api.post(`/reviews/${stallId}`, body);
+export const getReviews   = (stallId)       => api.get(`/reviews/${stallId}`);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const register = (data) => api.post("/auth/register", data);

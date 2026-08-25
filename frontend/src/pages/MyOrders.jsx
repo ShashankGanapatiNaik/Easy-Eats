@@ -4,13 +4,13 @@ import { myOrders, submitReview } from "../api";
 import { useCart } from "../context/CartContext";
 
 const STATUS_STYLES = {
-  Placed: "bg-gray-100 text-gray-700",
-  Accepted: "bg-blue-50 text-blue-700",
-  Preparing: "bg-yellow-50 text-yellow-700",
-  "Almost Ready": "bg-orange-50 text-orange-700",
-  Ready: "bg-lime-100 text-lime-800",
-  Collected: "bg-zinc-900 text-white",
-  Cancelled: "bg-red-50 text-red-600",
+  Placed: "bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-200",
+  Accepted: "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400",
+  Preparing: "bg-yellow-50 dark:bg-amber-950/50 text-yellow-700 dark:text-amber-400",
+  "Almost Ready": "bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-400",
+  Ready: "bg-lime-100 dark:bg-lime-950/50 text-lime-800 dark:text-lime-400 border border-lime-500/30",
+  Collected: "bg-zinc-900 dark:bg-zinc-800 text-white",
+  Cancelled: "bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400",
 };
 
 function MyOrders() {
@@ -327,7 +327,7 @@ function MyOrders() {
 
                         </h2>
 
-                        <p className="text-zinc-400 dark:text-zinc-500 mt-1 text-lg">
+                        <p className="text-zinc-400 dark:text-zinc-400 mt-1 text-lg font-medium">
 
                           {new Date(
                             order.placed_at
@@ -356,13 +356,13 @@ function MyOrders() {
 
                   {/* ITEMS */}
 
-                  <div className="border-t border-zinc-100 dark:border-zinc-800 p-6">
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 p-6 bg-zinc-50/50 dark:bg-zinc-900/40">
 
                     {(order.items || []).map((item, index) => (
 
                       <div
                         key={index}
-                        className="flex justify-between text-lg text-zinc-600 dark:text-zinc-400 mb-3"
+                        className="flex justify-between text-lg text-zinc-700 dark:text-zinc-200 mb-3 font-medium"
                       >
 
                         <span>
@@ -371,7 +371,7 @@ function MyOrders() {
 
                         </span>
 
-                        <span>
+                        <span className="font-bold text-zinc-900 dark:text-white">
 
                           ₹{item.subtotal}
 
