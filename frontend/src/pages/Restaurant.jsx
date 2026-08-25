@@ -11,6 +11,8 @@ import {
   getReviews,
 } from "../api";
 
+import { getCachedData, setCachedData } from "../utils/cache";
+
 function Restaurant() {
 
   const navigate = useNavigate();
@@ -81,68 +83,54 @@ function Restaurant() {
     };
   }, [id]);
 
+  const applyRestaurantData = (data) => {
+    const reviews = data.reviews || [];
+    const avgRating =
+      reviews.length > 0
+        ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1)
+        : "0.0";
+
+    setStall({
+      ...data,
+      reviews,
+      avg_rating: avgRating,
+      total_ratings: reviews.length,
+    });
+
+    const cats = data.menu_categories || [];
+    setCategories(cats);
+    setActiveTab((prev) => prev || cats[0] || "Popular");
+    setMenuSections(data.menu || []);
+  };
+
   const loadRestaurant = async () => {
+    const cacheKey = `stall_details_${id}`;
 
-    try {
-
-      const res = await getStall(id);
-
-      const data = res.data;
-
-      const reviews =
-        data.reviews || [];
-
-      const avgRating =
-        reviews.length > 0
-
-          ? (
-            reviews.reduce(
-              (sum, review) =>
-                sum + review.rating,
-              0
-            ) / reviews.length
-          ).toFixed(1)
-
-          : "0.0";
-
-      setStall({
-
-        ...data,
-
-        reviews,
-
-        avg_rating: avgRating,
-
-        total_ratings:
-          reviews.length
-
-      });
-
-      const cats =
-        data.menu_categories || [];
-
-      setCategories(cats);
-
-      setActiveTab(
-        cats[0] || "Popular"
-      );
-
-      setMenuSections(
-        data.menu || []
-      );
-
-    } catch (e) {
-
-      setError(
-        "Could not load restaurant"
-      );
-
-    } finally {
-
-      setLoading(false);
-
+    // 1. Immediate cache read on load
+    const cached = getCachedData(cacheKey, 10 * 60 * 1000);
+    if (cached && cached.data) {
+      applyRestaurantData(cached.data);
+      setLoading(false); // Stop loading spinner immediately
+    } else {
+      setLoading(true);
     }
 
+    try {
+      // 2. Background fresh fetch from API
+      const res = await getStall(id);
+      const data = res.data;
+
+      // 3. Update state and localStorage cache
+      applyRestaurantData(data);
+      setCachedData(cacheKey, data);
+    } catch (e) {
+      const cached = getCachedData(cacheKey, 10 * 60 * 1000);
+      if (!cached || !cached.data) {
+        setError("Could not load restaurant");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStartGroupOrder = async () => {

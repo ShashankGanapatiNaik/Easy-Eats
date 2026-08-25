@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { getMyStalls, createStall, updateStall, deleteStall, toggleStall } from "../../api";
+import { getCachedData, setCachedData, invalidateCache } from "../../utils/cache";
 
 export default function HotelManager({ onSelectStall }) {
   const [stalls, setStalls] = useState([]);
@@ -20,10 +19,23 @@ export default function HotelManager({ onSelectStall }) {
   });
 
   const loadStalls = async () => {
-    try {
+    const cacheKey = "my_stalls_admin";
+
+    // 1. Immediate cache read
+    const cached = getCachedData(cacheKey, 10 * 60 * 1000);
+    if (cached && cached.data) {
+      setStalls(cached.data);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    try {
+      // 2. Fetch fresh data from API
       const res = await getMyStalls();
-      setStalls(res.data || []);
+      const freshData = res.data || [];
+      setStalls(freshData);
+      setCachedData(cacheKey, freshData);
     } catch (e) {
       console.error(e);
     } finally {
@@ -39,6 +51,7 @@ export default function HotelManager({ onSelectStall }) {
     e.stopPropagation();
     try {
       await toggleStall(id);
+      invalidateCache("stalls");
       loadStalls();
     } catch (e) {}
   };

@@ -8,6 +8,8 @@ import OTPModal from "../components/OTPModal";
 import { io } from "socket.io-client";
 import { useTheme } from "../context/ThemeContext";
 
+import { getCachedData, setCachedData } from "../utils/cache";
+
 function CrowdBadge({ density }) {
   if (!density) return null;
   const { crowd_level, estimated_wait_min } = density;
@@ -139,16 +141,39 @@ export default function Home() {
   }, []);
 
   const loadStalls = async (silent = false) => {
-    if (!silent) setLoading(true);
+    const cacheKey = `stalls_${active}`;
+
+    // 1. Immediate cache read on initial load
+    if (!silent) {
+      const cached = getCachedData(cacheKey, 10 * 60 * 1000);
+      if (cached && cached.data) {
+        setStalls(cached.data);
+        setLoading(false); // Stop main spinner immediately
+      } else {
+        setLoading(true);
+      }
+    }
+
     setError(null);
+
     try {
       const params = {};
       if (active !== "All") params.cuisine = active;
+
+      // 2. Fetch fresh data from API in background
       const res = await getStalls(params);
-      setStalls(res.data || []);
+      const freshStalls = res.data || [];
+
+      // 3. Update state and localStorage
+      setStalls(freshStalls);
+      setCachedData(cacheKey, freshStalls);
     } catch (e) {
-      if (!silent) setError(e.response?.data?.detail || e.message || "Cannot connect to server");
-      setStalls([]);
+      // 4. Safe error handling: keep stale cached state if available
+      const cached = getCachedData(cacheKey, 10 * 60 * 1000);
+      if (!cached || !cached.data) {
+        if (!silent) setError(e.response?.data?.detail || e.message || "Cannot connect to server");
+        setStalls([]);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
