@@ -129,25 +129,18 @@ export default function ForgotPassword() {
                     Recover your Easy Eats account
                 </p>
 
-                {/* DEV MODE: OTP display box — stays visible on steps 2 and 3 */}
-                {devOtp && step >= 2 && (
-                    <div className="mb-6 border-2 border-dashed border-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-2xl p-4">
-                        <p className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">
-                            ⚠️ Test Mode — Email not sent
-                        </p>
-                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">
-                            SMTP is not configured. Your OTP is shown below — copy it into the field.
-                        </p>
-                        <div
-                            className="text-center text-3xl font-black tracking-[0.3em] text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950 rounded-xl py-3 cursor-pointer select-all"
+                {devOtp && step === 2 && (
+                    <div className="mb-4 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+                        <span className="font-medium">
+                            Test OTP: <strong className="font-mono text-sm ml-1 select-all">{devOtp}</strong>
+                        </span>
+                        <button
+                            type="button"
                             onClick={() => setOtp(devOtp)}
-                            title="Click to auto-fill OTP"
+                            className="px-2.5 py-1 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer"
                         >
-                            {devOtp}
-                        </div>
-                        <p className="text-xs text-center text-amber-500 mt-2">
-                            {step === 2 ? "Click the code to auto-fill ↑" : "Your verified OTP — keep for reference"}
-                        </p>
+                            Auto-fill
+                        </button>
                     </div>
                 )}
 

@@ -12,6 +12,7 @@ from app.routes.wallet   import router as wallet_router
 from app.routes.ai_order import router as ai_router
 from app.routes.notifications import router as notifications_router
 from app.routes.group_orders import router as group_orders_router
+from app.routes.colleges import router as colleges_router
 from app.socket_manager import sio
 
 @asynccontextmanager
@@ -43,6 +44,7 @@ app.include_router(wallet_router)
 app.include_router(ai_router)
 app.include_router(notifications_router)
 app.include_router(group_orders_router)
+app.include_router(colleges_router)
 
 @app.api_route("/", methods=["GET", "HEAD"])
 def root(): return {"message": "Easy Eats API v2.0 🍔"}
@@ -50,6 +52,9 @@ def root(): return {"message": "Easy Eats API v2.0 🍔"}
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health(): return {"status": "ok"}
 
-# ── Socket.IO — wrap FastAPI app with the ASGI socket layer ──────────────────
-# IMPORTANT: uvicorn must point to `app.main:socket_app` (not `app.main:app`)
+# ── Socket.IO — mount ASGI socket layer onto FastAPI ───────────────────
+# Mounts /socket.io so both `uvicorn app.main:app` and `uvicorn app.main:socket_app` work
+sio_asgi = socketio.ASGIApp(sio, socketio_path="")
+app.mount("/socket.io", sio_asgi)
+
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)

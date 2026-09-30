@@ -17,6 +17,8 @@ class User(Document):
     phone:      Optional[str] = None
     stall_name: Optional[str] = None
     stall_id:   Optional[str] = None
+    college_id: Optional[str] = None
+    college_name: Optional[str] = None
     avatar_url: Optional[str] = None
     is_active:  bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)

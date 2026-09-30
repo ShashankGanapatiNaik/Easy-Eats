@@ -24,8 +24,17 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
     try {
       const res = await sendOtp(phone, email);
 
-      setGeneratedOtp(res.data.otp);
-      setSuccess("OTP generated successfully!");
+      if (res.data?.email_sent) {
+        setGeneratedOtp("");
+        setSuccess("OTP sent successfully to your email!");
+      } else if (res.data?.otp) {
+        setGeneratedOtp(res.data.otp);
+        setSuccess("OTP generated (Test Mode)");
+      } else {
+        setGeneratedOtp("");
+        setSuccess(res.data?.message || "OTP sent successfully!");
+      }
+
       setTimer(60);
       setOtp(["", "", "", "", "", ""]);
 
@@ -157,9 +166,10 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
         </p>
 
         {generatedOtp && (
-          <div className="mb-4 bg-amber-50 border-2 border-amber-400 text-amber-900 px-4 py-3 rounded-xl text-left">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">⚠️ Test Mode — Email not sent</p>
-            <p className="text-sm mb-1">Your OTP is:</p>
+          <div className="mb-4 p-2.5 bg-amber-50/90 border border-amber-200/80 rounded-xl flex items-center justify-between text-xs text-amber-900">
+            <span className="font-medium text-amber-800">
+              Test OTP: <strong className="font-mono text-sm ml-1 select-all">{generatedOtp}</strong>
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -167,12 +177,10 @@ export default function OTPModal({ isOpen, phone, email, onVerify, onClose }) {
                 setOtp(digits);
                 setTimeout(() => inputRefs.current[5]?.focus(), 50);
               }}
-              className="text-2xl font-black tracking-widest text-amber-800 hover:text-amber-600 cursor-pointer underline decoration-dotted transition-colors"
-              title="Click to auto-fill"
+              className="px-2.5 py-1 bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-bold rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer"
             >
-              {generatedOtp}
+              Auto-fill
             </button>
-            {/* <p className="text-xs text-amber-600 mt-1">👆 Click to auto-fill</p> */}
           </div>
         )}
 

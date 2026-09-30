@@ -62,15 +62,34 @@ async def list_stalls(
     cuisine: Optional[StallCategory] = None,
     open_only: bool = False,
     search: Optional[str] = None,
+    college_id: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    """List stalls with optional filters. No auth required (public browse)."""
+    """List stalls with optional filters (including college_id). No auth required (public browse)."""
     query = {}
     if cuisine:
         query["cuisine_type"] = cuisine
     if open_only:
         query["is_open"] = True
+
+    if college_id:
+        from app.models.college import College
+        try:
+            college = await College.get(ObjectId(college_id))
+            if college and college.hotel_ids:
+                # Convert string hotel_ids to ObjectIds
+                valid_ids = []
+                for hid in college.hotel_ids:
+                    try:
+                        valid_ids.append(ObjectId(hid))
+                    except Exception:
+                        pass
+                query["_id"] = {"$in": valid_ids}
+            else:
+                return []
+        except Exception:
+            return []
 
     stalls = Stall.find(query)
 

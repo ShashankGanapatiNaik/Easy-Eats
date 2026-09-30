@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { getCachedData, setCachedData, invalidateCache } from "../../utils/cache";
+import { getMyStalls, toggleStall, deleteStall, updateStall, createStall } from "../../api";
 
 export default function HotelManager({ onSelectStall }) {
   const [stalls, setStalls] = useState([]);

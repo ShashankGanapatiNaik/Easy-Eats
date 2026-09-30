@@ -19,11 +19,12 @@ async def connect_db():
     from app.models.notification import Notification
     from app.models.recommendation_analytics import RecommendationAnalytics
     from app.models.group_session import GroupSession
+    from app.models.college   import College
     from app.routes.wallet    import WalletBalance, WalletTransaction
 
     await init_beanie(
         database=_client[settings.MONGODB_DB_NAME],
-        document_models=[User, Stall, MenuItem, Order, Review, OTPVerification, Notification, WalletBalance, WalletTransaction, RecommendationAnalytics, GroupSession],
+        document_models=[User, Stall, MenuItem, Order, Review, OTPVerification, Notification, WalletBalance, WalletTransaction, RecommendationAnalytics, GroupSession, College],
     )
     logger.info(f"✅ Connected to MongoDB: {settings.MONGODB_DB_NAME}")
 
@@ -39,6 +40,29 @@ async def connect_db():
             logger.info("✅ Auto-seed completed successfully!")
         except Exception as e:
             logger.error(f"❌ Auto-seed failed: {e}")
+
+    # Ensure REVA University exists & holds all existing 4 hotels
+    try:
+        reva_college = await College.find_one(College.name == "REVA University")
+        all_stalls = await Stall.find().to_list()
+        all_stall_ids = [str(s.id) for s in all_stalls]
+
+        if not reva_college:
+            reva_college = College(
+                name="REVA University",
+                domain="@reva.edu.in",
+                hotel_ids=all_stall_ids
+            )
+            await reva_college.insert()
+            logger.info(f"✅ Auto-created REVA University college with {len(all_stall_ids)} existing hotels")
+        else:
+            # Update hotel_ids if empty
+            if not reva_college.hotel_ids and all_stall_ids:
+                reva_college.hotel_ids = all_stall_ids
+                await reva_college.save()
+                logger.info(f"✅ Updated REVA University with existing hotel IDs: {all_stall_ids}")
+    except Exception as e:
+        logger.error(f"❌ Failed to check/seed REVA University college: {e}")
 
 async def close_db():
     global _client

@@ -49,7 +49,7 @@ async def send_email(to_email: str, subject: str, body: str, html_body: str = No
     if "CHANGE_ME" in settings.MAIL_PASSWORD or "your_google_app_password" in settings.MAIL_PASSWORD:
         print(f"\n[EMAIL SIMULATION] To: {to_email}\nSubject: {subject}\nBody:\n{body}\n")
         logger.warning(f"Skipped real email to {to_email} — Gmail SMTP password is not configured.")
-        return True
+        return False
 
     try:
         # Lazy import so app boots successfully even if fastapi-mail isn't installed yet

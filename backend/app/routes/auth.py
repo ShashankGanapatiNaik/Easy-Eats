@@ -38,6 +38,7 @@ class RegisterBody(BaseModel):
     role: UserRole = UserRole.student
     phone: Optional[str] = None
     stall_name: Optional[str] = None
+    college_id: Optional[str] = None
     firebase_token: Optional[str] = None
 
 
@@ -137,6 +138,7 @@ async def register(body: RegisterBody):
             detail="Stall name is required"
         )
 
+    college_obj = None
     if body.role == UserRole.student:
 
         if not body.phone:
@@ -146,6 +148,37 @@ async def register(body: RegisterBody):
             )
 
         body.phone = validate_and_clean_phone(body.phone)
+
+        if not body.college_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Please select your college"
+            )
+
+        from app.models.college import College
+        try:
+            college_obj = await College.get(ObjectId(body.college_id))
+        except Exception:
+            college_obj = None
+
+        if not college_obj:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid college selected"
+            )
+
+        # Check domain match dynamically against selected college's domain
+        expected_domain = college_obj.domain.strip().lower()
+        if expected_domain.startswith("@"):
+            expected_domain = expected_domain[1:]
+
+        user_domain = body.email.strip().lower().split("@")[-1]
+
+        if user_domain != expected_domain:
+            raise HTTPException(
+                status_code=400,
+                detail="Please use your official college email address."
+            )
 
         verification = await OTPVerification.find_one(
             OTPVerification.phone == body.phone,
@@ -166,6 +199,8 @@ async def register(body: RegisterBody):
         role=body.role,
         phone=body.phone,
         stall_name=body.stall_name,
+        college_id=str(college_obj.id) if college_obj else None,
+        college_name=college_obj.name if college_obj else None,
     )
 
     await user.insert()
@@ -255,6 +290,8 @@ async def login(body: LoginBody):
             "role": role_str,
             "stall_name": user.stall_name,
             "stall_id": user.stall_id,
+            "college_id": getattr(user, "college_id", None),
+            "college_name": getattr(user, "college_name", None),
         },
     }
 
@@ -281,20 +318,20 @@ async def send_otp(body: SendOTPBody):
     await verification.insert()
 
     # Send via Email if provided
+    email_sent = False
     if body.email:
         print(f"OTP GENERATED: {code}")
         print(f"EMAIL: {body.email}")
 
-        success = await send_email(
+        email_sent = await send_email(
             to_email=body.email,
             subject="Easy Eats OTP Verification",
             body=f"Hello from Easy Eats 🍔\n\nYour verification OTP is:\n\n{code}\n\nThis OTP expires in 5 minutes.",
             html_body=get_otp_html(code)
         )
 
-        # For testing, don't fail if email sending fails
-        if not success:
-            logger.warning("Email sending failed, returning OTP for testing.")
+        if not email_sent:
+            logger.warning("Email sending failed or SMTP not configured, returning OTP for test mode.")
     else:
         try:
             sms_text = f"Easy Eats OTP: {code}"
@@ -302,13 +339,17 @@ async def send_otp(body: SendOTPBody):
         except Exception:
             pass
 
-    # Return OTP to frontend for testing
-    # print("RETURNING OTP:", code)
-    return {
-        "message": "OTP generated successfully",
+    response = {
+        "message": "OTP sent successfully" if email_sent else "OTP generated successfully",
         "phone": phone,
-        "otp": code
+        "email_sent": email_sent
     }
+
+    # Only include OTP in response if email was not sent successfully (fallback/test mode)
+    if not email_sent:
+        response["otp"] = code
+
+    return response
 
 @router.post("/otp/verify")
 async def verify_otp(body: VerifyOTPBody):
@@ -380,15 +421,15 @@ async def forgot_password_send(
         html_body=get_otp_html(otp)
     )
 
-    # Always return the OTP so the frontend can display it for testing.
-    # The email service returns True even when simulating (no real email sent),
-    # so we can't rely on `not success` to detect that case.
-    # In production with real SMTP, the OTP is also sent via email.
-    return {
-        "message": "OTP generated successfully",
-        "otp": otp,
+    response = {
+        "message": "OTP sent successfully" if success else "OTP generated successfully",
         "email_sent": success
     }
+
+    if not success:
+        response["otp"] = otp
+
+    return response
 
 
 @router.post("/forgot-password/check-otp")
