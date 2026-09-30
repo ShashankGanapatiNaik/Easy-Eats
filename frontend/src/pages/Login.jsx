@@ -182,9 +182,9 @@ export default function Login() {
             const a =
               Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos((latitude * Math.PI) / 180) *
-                Math.cos((cLat * Math.PI) / 180) *
-                Math.sin(dLon / 2) *
-                Math.sin(dLon / 2);
+              Math.cos((cLat * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             const dist = R * c;
 
@@ -481,7 +481,7 @@ export default function Login() {
                       <option value="">Select College</option>
                       {colleges.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.name} ({c.domain})
+                          {c.name}
                         </option>
                       ))}
                     </select>
