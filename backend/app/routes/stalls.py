@@ -37,6 +37,7 @@ class StallCreateBody(BaseModel):
     estimated_pickup_min: int = 5
     owner_email: Optional[str] = None
     owner_password: Optional[str] = None
+    college_id: Optional[str] = None
 
 
 class StallUpdateBody(BaseModel):
@@ -440,12 +441,26 @@ async def create_stall(
         await new_owner.insert()
         owner_id_to_use = new_owner.id
 
-    stall_data = body.model_dump(exclude={"owner_email", "owner_password"})
+    stall_data = body.model_dump(exclude={"owner_email", "owner_password", "college_id"})
     stall = Stall(
         owner_id=owner_id_to_use,
         **stall_data,
     )
     await stall.insert()
+
+    # Auto-assign to college if college_id is provided
+    if body.college_id:
+        from app.models.college import College
+        try:
+            college = await College.get(ObjectId(body.college_id))
+            if college:
+                hid = str(stall.id)
+                if hid not in college.hotel_ids:
+                    college.hotel_ids.append(hid)
+                    await college.save()
+        except Exception:
+            pass
+
     return {"message": "Stall created", "id": str(stall.id)}
 
 

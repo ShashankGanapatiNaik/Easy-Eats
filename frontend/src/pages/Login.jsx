@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { login, register, sendOtp } from "../api";
+import { login, register, sendOtp, getColleges } from "../api";
 import logo from "../assets/logo.svg";
 import OTPModal from "../components/OTPModal";
 
@@ -57,6 +57,9 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const [colleges, setColleges] = useState([]);
+  const [selectedCollegeId, setSelectedCollegeId] = useState("");
 
 
   useEffect(() => {
@@ -153,8 +156,35 @@ export default function Login() {
     await doLogin(siEmail, siPassword);
   };
 
+  useEffect(() => {
+    getColleges()
+      .then((res) => {
+        const list = res.data || [];
+        setColleges(list);
+        if (list.length > 0) {
+          setSelectedCollegeId(list[0].id);
+        }
+      })
+      .catch((err) => console.error("Failed to load colleges", err));
+  }, []);
+
   const handleStudentRegister = async (e) => {
     e.preventDefault();
+    if (!selectedCollegeId) {
+      showToast("Please select your college.", "error");
+      return;
+    }
+
+    const college = colleges.find((c) => c.id === selectedCollegeId);
+    if (college && college.domain) {
+      const cleanDomain = college.domain.replace(/^@/, "").toLowerCase();
+      const userDomain = stEmail.trim().split("@")[1]?.toLowerCase();
+      if (userDomain !== cleanDomain) {
+        showToast("Please use your official college email address.", "error");
+        return;
+      }
+    }
+
     const clean = stPhone.replace(/\D/g, "");
     if (clean.length !== 10) {
       showToast("Please enter a valid 10-digit mobile number.", "error");
@@ -177,6 +207,7 @@ export default function Login() {
         phone: fullPhone,
         password: stPassword,
         role: "student",
+        college_id: selectedCollegeId,
         firebase_token: idToken
       });
       await doLogin(stEmail, stPassword);
@@ -331,8 +362,27 @@ export default function Login() {
               /* Register Forms */
               role === "student" ? (
                 <form onSubmit={handleStudentRegister} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">
+                      Select College *
+                    </label>
+                    <select
+                      value={selectedCollegeId}
+                      onChange={(e) => setSelectedCollegeId(e.target.value)}
+                      required
+                      className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none bg-gray-50 dark:bg-zinc-800 dark:text-white font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
+                    >
+                      {colleges.length === 0 && <option value="">Loading colleges...</option>}
+                      {colleges.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          🎓 {c.name} ({c.domain})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <Input label="Full Name" value={stName} onChange={e => setStName(e.target.value)} placeholder="e.g. Arjun Kumar" required />
-                  <Input label="College Email" type="email" value={stEmail} onChange={e => setStEmail(e.target.value)} placeholder="student@college.edu" required />
+                  <Input label="College Email" type="email" value={stEmail} onChange={e => setStEmail(e.target.value)} placeholder="student@reva.edu.in" required />
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300 mb-1.5">Phone Number</label>
@@ -416,24 +466,28 @@ export default function Login() {
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                // { label: "🎓 Student", email: "student@demo.com", role: "student" },
-                { label: "🏪 Campus Cafe", email: "cafe@demo.com", role: "stall_owner" },
-                { label: "🍔 Burger Hub", email: "burger@demo.com", role: "stall_owner" },
-                { label: "☕ Coffee Corner", email: "coffee@demo.com", role: "stall_owner" },
-                { label: "☕ Mahasati Chinese", email: "mahasati@demo.com", role: "stall_owner" },
-                // { label: "🛡️ Super Admin", email: "admin@demo.com", role: "admin" },
-              ].filter(d => role === "admin" ? d.role === "admin" : true).map((d) => (
+                // { label: "🎓 Demo Student", email: "student@reva.edu.in", pass: "studentpass", role: "student" },
+                // { label: "🛡️ Super Admin", email: "admin@easyeats.com", pass: "adminpass", role: "admin" },
+                { label: "🏪 Campus Cafe", email: "campus-cafe@easyeats.com", pass: "ownerpass", role: "stall_owner" },
+                { label: "🍔 Burger Hub", email: "burger-hub@easyeats.com", pass: "ownerpass", role: "stall_owner" },
+                { label: "☕ Coffee Corner", email: "coffee-corner@easyeats.com", pass: "ownerpass", role: "stall_owner" },
+                { label: "☕ Mahasati Chinese", email: "mahasati-chinese@easyeats.com", pass: "ownerpass", role: "stall_owner" }
+              ].filter(d => {
+                if (role === "admin") return d.role === "admin" || d.role === "stall_owner";
+                if (role === "stall_owner") return d.role === "stall_owner" || d.role === "admin";
+                return true;
+              }).map((d) => (
                 <button key={d.label} type="button"
                   onClick={() => {
                     setRole(d.role);
                     setAuthMode("signin");
                     setSiEmail(d.email);
-                    setSiPassword("demo1234");
-                    doLogin(d.email, "demo1234");
+                    setSiPassword(d.pass);
+                    doLogin(d.email, d.pass);
                   }}
                   className={`text-xs border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 py-3 px-3 rounded-xl
                              hover:border-lime-500 hover:bg-lime-50 dark:hover:bg-zinc-800 hover:text-lime-700 font-bold transition-all
-                             ${role === "admin" ? "col-span-2 max-w-xs mx-auto w-full" : ""}`}>
+                             ${d.role === "admin" ? "col-span-2 max-w-xs mx-auto w-full" : ""}`}>
                   {d.label}
                 </button>
               ))}

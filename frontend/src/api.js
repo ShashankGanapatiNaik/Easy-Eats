@@ -46,6 +46,15 @@ export const getMyStalls        = ()            => api.get("/stalls/my_stalls");
 export const deleteStall        = (id)          => api.delete(`/stalls/${id}`);
 export const updateStall        = (id, data)    => api.put(`/stalls/${id}`, data);
 
+// ── Colleges ──────────────────────────────────────────────────────────────────
+export const getColleges             = ()                  => api.get("/colleges/");
+export const getCollege              = (id)                => api.get(`/colleges/${id}`);
+export const createCollege           = (data)              => api.post("/colleges/", data);
+export const updateCollege           = (id, data)          => api.put(`/colleges/${id}`, data);
+export const deleteCollege           = (id)                => api.delete(`/colleges/${id}`);
+export const assignHotelToCollege    = (id, hotelId)       => api.post(`/colleges/${id}/assign-hotel`, { hotel_id: hotelId });
+export const unassignHotelFromCollege= (id, hotelId)       => api.post(`/colleges/${id}/unassign-hotel`, { hotel_id: hotelId });
+
 // ── Menu ──────────────────────────────────────────────────────────────────────
 export const getMenu               = (stallId)        => api.get(`/menu/${stallId}`);
 export const getAvailableMenu      = (stallId)        => api.get(`/menu/${stallId}/available`);

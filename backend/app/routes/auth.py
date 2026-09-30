@@ -149,17 +149,43 @@ async def register(body: RegisterBody):
 
         body.phone = validate_and_clean_phone(body.phone)
 
-        if not body.college_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Please select your college"
-            )
-
         from app.models.college import College
-        try:
-            college_obj = await College.get(ObjectId(body.college_id))
-        except Exception:
-            college_obj = None
+        college_obj = None
+
+        if body.college_id:
+            # 1. Try by ObjectId
+            try:
+                college_obj = await College.get(ObjectId(body.college_id))
+            except Exception:
+                college_obj = None
+
+            # 2. Try by mongo _id filter
+            if not college_obj:
+                try:
+                    college_obj = await College.find_one({"_id": ObjectId(body.college_id)})
+                except Exception:
+                    college_obj = None
+
+            # 3. Try by Name match
+            if not college_obj:
+                try:
+                    college_obj = await College.find_one(College.name == body.college_id)
+                except Exception:
+                    college_obj = None
+
+        # 4. Fallback: If only 1 college exists in database (e.g. REVA University), use it
+        if not college_obj:
+            all_colleges = await College.find().to_list()
+            if len(all_colleges) >= 1:
+                # Find matching domain college or default to first
+                user_domain = body.email.strip().lower().split("@")[-1]
+                for c in all_colleges:
+                    c_domain = c.domain.strip().lower().replace("@", "")
+                    if c_domain == user_domain:
+                        college_obj = c
+                        break
+                if not college_obj and len(all_colleges) == 1:
+                    college_obj = all_colleges[0]
 
         if not college_obj:
             raise HTTPException(
@@ -354,7 +380,7 @@ async def send_otp(body: SendOTPBody):
 @router.post("/otp/verify")
 async def verify_otp(body: VerifyOTPBody):
 
-    phone = body.phone.strip()
+    phone = validate_and_clean_phone(body.phone)
     code = body.code.strip()
 
     verification = await OTPVerification.find_one(

@@ -41,6 +41,40 @@ async def connect_db():
         except Exception as e:
             logger.error(f"❌ Auto-seed failed: {e}")
 
+    # Ensure default Admin user and Student user exist
+    try:
+        from app.models.user import User, UserRole
+        from app.utils.security import hash_password
+
+        admin_user = await User.find_one(User.role == UserRole.admin)
+        if not admin_user:
+            admin_user = User(
+                name="System Admin",
+                email="admin@easyeats.com",
+                password=hash_password("adminpass"),
+                role=UserRole.admin,
+                phone="9999999999",
+                college_name="REVA University"
+            )
+            await admin_user.insert()
+            logger.info("✅ Auto-seeded Admin user: admin@easyeats.com / adminpass")
+
+        demo_student = await User.find_one(User.email == "student@reva.edu.in")
+        if not demo_student:
+            demo_student = User(
+                name="Demo Student",
+                email="student@reva.edu.in",
+                password=hash_password("studentpass"),
+                role=UserRole.student,
+                phone="9876543210",
+                college_name="REVA University"
+            )
+            await demo_student.insert()
+            logger.info("✅ Auto-seeded Student user: student@reva.edu.in / studentpass")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to seed users: {e}")
+
     # Ensure REVA University exists & holds all existing 4 hotels
     try:
         reva_college = await College.find_one(College.name == "REVA University")

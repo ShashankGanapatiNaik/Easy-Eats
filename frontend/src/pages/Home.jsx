@@ -141,7 +141,7 @@ export default function Home() {
   }, []);
 
   const loadStalls = async (silent = false) => {
-    const cacheKey = `stalls_${active}`;
+    const cacheKey = `stalls_${active}_${user.college_id || "all"}`;
 
     // 1. Immediate cache read on initial load
     if (!silent) {
@@ -159,6 +159,7 @@ export default function Home() {
     try {
       const params = {};
       if (active !== "All") params.cuisine = active;
+      if (user.college_id) params.college_id = user.college_id;
 
       // 2. Fetch fresh data from API in background
       const res = await getStalls(params);
@@ -374,7 +375,9 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight leading-tight">Easy Eats</h1>
-              <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">Fast campus food pickup 🎓</p>
+              <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+                {user.college_name ? `🎓 ${user.college_name}` : "Fast campus food pickup 🎓"}
+              </p>
             </div>
           </div>
           
