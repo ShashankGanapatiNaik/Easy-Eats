@@ -19,6 +19,15 @@ from app.socket_manager import sio
 async def lifespan(app: FastAPI):
     await connect_db()
     await init_redis()
+    try:
+        from app.models.college import College
+        reva = await College.find_one(College.name == "REVA University")
+        if reva and (reva.latitude is None or reva.longitude is None):
+            reva.latitude = 13.1169
+            reva.longitude = 77.6346
+            await reva.save()
+    except Exception:
+        pass
     yield
     await close_db()
     await close_redis()

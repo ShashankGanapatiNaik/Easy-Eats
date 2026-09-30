@@ -36,6 +36,8 @@ async def list_colleges():
             "name": c.name,
             "domain": c.domain,
             "hotel_ids": c.hotel_ids,
+            "latitude": c.latitude,
+            "longitude": c.longitude,
         }
         for c in colleges
     ]

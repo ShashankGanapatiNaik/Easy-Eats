@@ -61,7 +61,7 @@ export default function Login() {
   const [colleges, setColleges] = useState([]);
   const [selectedCollegeId, setSelectedCollegeId] = useState("");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [locationStatus, setLocationStatus] = useState("");
+  const [suggestedCollege, setSuggestedCollege] = useState(null);
 
 
   useEffect(() => {
@@ -170,20 +170,24 @@ export default function Login() {
         let matchedCollege = null;
         let minDistance = Infinity;
 
-        // 1. Calculate distance if colleges have coordinates
+        // 1. Calculate distance if colleges have coordinates (with REVA fallback coords)
         list.forEach((col) => {
-          if (col.latitude && col.longitude) {
+          const cLat = col.latitude != null ? col.latitude : (col.name.toLowerCase().includes("reva") ? 13.1169 : null);
+          const cLng = col.longitude != null ? col.longitude : (col.name.toLowerCase().includes("reva") ? 77.6346 : null);
+
+          if (cLat != null && cLng != null) {
             const R = 6371; // km
-            const dLat = ((col.latitude - latitude) * Math.PI) / 180;
-            const dLon = ((col.longitude - longitude) * Math.PI) / 180;
+            const dLat = ((cLat - latitude) * Math.PI) / 180;
+            const dLon = ((cLng - longitude) * Math.PI) / 180;
             const a =
               Math.sin(dLat / 2) * Math.sin(dLat / 2) +
               Math.cos((latitude * Math.PI) / 180) *
-                Math.cos((col.latitude * Math.PI) / 180) *
+                Math.cos((cLat * Math.PI) / 180) *
                 Math.sin(dLon / 2) *
                 Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             const dist = R * c;
+
             if (dist < minDistance) {
               minDistance = dist;
               matchedCollege = col;
@@ -191,56 +195,59 @@ export default function Login() {
           }
         });
 
-        // 2. Reverse geocode fallback if no coordinate match or distance > 50km
-        if (!matchedCollege || minDistance > 50) {
-          try {
-            const res = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            );
-            if (res.ok) {
-              const data = await res.json();
-              const fullLocText = [
-                data.locality,
-                data.city,
-                data.principalSubdivision,
-                ...(data.localityInfo?.informative?.map((i) => i.name) || []),
-              ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
-
-              const keywordMatch = list.find((col) => {
-                const keywords = col.name
-                  .toLowerCase()
-                  .split(" ")
-                  .filter(
-                    (w) =>
-                      w.length > 2 &&
-                      !["university", "college", "institute", "technology", "of"].includes(w)
-                  );
-                return keywords.some((kw) => fullLocText.includes(kw));
-              });
-
-              if (keywordMatch) {
-                matchedCollege = keywordMatch;
-              }
-            }
-          } catch (e) {
-            console.log("Reverse geocode failed:", e);
-          }
-        }
-
-        if (matchedCollege) {
+        // Accept closest campus if within reasonable distance (or if it's the closest available)
+        if (matchedCollege && minDistance <= 200) {
           setSelectedCollegeId(matchedCollege.id);
-          setLocationStatus(`📍 Auto-selected nearest campus`);
+          setSuggestedCollege(matchedCollege);
+          setIsDetectingLocation(false);
+          return;
         }
+
+        // 2. Reverse geocode fallback
+        try {
+          const res = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const fullLocText = [
+              data.locality,
+              data.city,
+              data.principalSubdivision,
+              ...(data.localityInfo?.informative?.map((i) => i.name) || []),
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            const keywordMatch = list.find((col) => {
+              const keywords = col.name
+                .toLowerCase()
+                .split(" ")
+                .filter(
+                  (w) =>
+                    w.length > 2 &&
+                    !["university", "college", "institute", "technology", "of"].includes(w)
+                );
+              return keywords.some((kw) => fullLocText.includes(kw));
+            });
+
+            if (keywordMatch) {
+              setSelectedCollegeId(keywordMatch.id);
+              setSuggestedCollege(keywordMatch);
+            }
+          }
+        } catch (e) {
+          console.log("Reverse geocode failed:", e);
+        }
+
         setIsDetectingLocation(false);
       },
       (err) => {
         console.log("Geolocation detection skipped or denied:", err.message);
         setIsDetectingLocation(false);
       },
-      { timeout: 8000, enableHighAccuracy: true }
+      { timeout: 10000, enableHighAccuracy: true }
     );
   };
 
@@ -250,7 +257,6 @@ export default function Login() {
         const list = res.data || [];
         setColleges(list);
         if (list.length > 0) {
-          setSelectedCollegeId(list[0].id);
           detectLocationAndSelectCollege(list);
         }
       })
@@ -456,29 +462,26 @@ export default function Login() {
                       <label className="block text-sm font-bold text-gray-700 dark:text-zinc-300">
                         Select College *
                       </label>
-                      {locationStatus ? (
+                      {suggestedCollege ? (
                         <span className="text-xs font-semibold text-lime-600 dark:text-lime-400 flex items-center gap-1">
-                          {locationStatus}
+                          📍 Auto-selected nearest campus
                         </span>
                       ) : isDetectingLocation ? (
                         <span className="text-xs font-medium text-gray-400 animate-pulse">
-                          📍 Detecting nearest college...
+                          📍 Detecting nearby college...
                         </span>
                       ) : null}
                     </div>
                     <select
                       value={selectedCollegeId}
-                      onChange={(e) => {
-                        setSelectedCollegeId(e.target.value);
-                        setLocationStatus("");
-                      }}
+                      onChange={(e) => setSelectedCollegeId(e.target.value)}
                       required
                       className="w-full border border-gray-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm outline-none bg-gray-50 dark:bg-zinc-800 dark:text-white font-bold focus:border-lime-500 focus:ring-2 focus:ring-lime-500/20 transition-all cursor-pointer"
                     >
-                      {colleges.length === 0 && <option value="">Loading colleges...</option>}
+                      <option value="">Select College</option>
                       {colleges.map((c) => (
                         <option key={c.id} value={c.id}>
-                          🎓 {c.name} ({c.domain})
+                          {c.name} ({c.domain})
                         </option>
                       ))}
                     </select>
