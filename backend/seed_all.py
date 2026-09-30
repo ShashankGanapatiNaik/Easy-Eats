@@ -100,12 +100,16 @@ async def seed():
         reva_college = College(
             name="REVA University",
             domain="@reva.edu.in",
-            hotel_ids=stall_ids
+            hotel_ids=stall_ids,
+            latitude=13.1169,
+            longitude=77.6346
         )
         await reva_college.insert()
         logger.info(f"Created REVA University with hotels: {stall_ids}")
     else:
         reva_college.hotel_ids = stall_ids
+        reva_college.latitude = 13.1169
+        reva_college.longitude = 77.6346
         await reva_college.save()
         logger.info(f"Updated REVA University hotel_ids: {stall_ids}")
 
